@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "motion/react";
 type Product = {
   id: string;
   photo: string;
+  image?: string;
   maker: string;
   colorName: string;
   colorCode: string;
@@ -43,6 +44,7 @@ type FilterState = {
 type RegisterForm = {
   photoFile: File | null;
   photoPreview: string | null;
+  photoError: string;
   maker: string;
   colorName: string;
   colorCode: string;
@@ -66,6 +68,7 @@ type EditForm = {
   photoUrl: string;
   photoFile: File | null;
   photoPreview: string | null;
+  photoError: string;
   maker: string;
   colorName: string;
   colorCode: string;
@@ -112,6 +115,7 @@ const STOCK_OPTIONS: { value: StockFilter; label: string }[] = [
 const INITIAL_REGISTER_FORM: RegisterForm = {
   photoFile: null,
   photoPreview: null,
+  photoError: "",
   maker: "",
   colorName: "",
   colorCode: "#8B6E52",
@@ -136,66 +140,12 @@ const GAUGES = ["極細", "細", "中細", "合太", "並太", "極太"];
 const SUGGESTED_MAKERS = ["Hamanaka", "Richmore", "Daruma", "Puppy", "Ski毛糸"];
 const GAUGE_SIZE: Record<string, number> = { 極細: 4, 細: 6, 中細: 8, 合太: 10, 並太: 13, 極太: 17 };
 const ITEMS_STORAGE_KEY = "yarn-inventory-items";
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const PRODUCT_PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'%3E%3Crect width='800' height='600' fill='%23f2f2f2'/%3E%3Ccircle cx='400' cy='300' r='118' fill='none' stroke='%23d8d8d8' stroke-width='36'/%3E%3Ccircle cx='400' cy='300' r='72' fill='%23ffffff' stroke='%23e4e4e4' stroke-width='18'/%3E%3Cpath d='M254 396c88-108 195-111 292-8' fill='none' stroke='%23c9c9c9' stroke-width='22' stroke-linecap='round'/%3E%3Cpath d='M584 238c58 21 96 58 114 110' fill='none' stroke='%23d8d8d8' stroke-width='18' stroke-linecap='round'/%3E%3C/svg%3E";
 
-const initialProducts: Product[] = [
-  {
-    id: "1",
-    photo: "https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=800&h=600&fit=crop&auto=format",
-    maker: "Hamanaka", colorName: "桜ピンク", colorCode: "#F2A5B5",
-    material: "ウール", gauge: "中細", quantity: 5, purchaseDate: "2024-02-14",
-    notes: "春物セーター用に購入。洗濯機使用不可なので手洗いで。",
-    weightG: 40, lengthM: 120, needleMin: 3, needleMax: 4, gaugeStitches: 24, gaugeRows: 32,
-  },
-  {
-    id: "2",
-    photo: "https://images.unsplash.com/photo-1595341595379-cf1cb694ea1f?w=800&h=600&fit=crop&auto=format",
-    maker: "Richmore", colorName: "コバルトブルー", colorCode: "#5B8FD4",
-    material: "メリノウール", gauge: "並太", quantity: 3, purchaseDate: "2024-03-05",
-    url: "https://www.richmore.jp", notes: "マフラー用。肌触りが良くてお気に入り。",
-    weightG: 40, lengthM: 80, needleMin: 6, needleMax: 7, hookMin: 7, hookMax: 8, gaugeStitches: 18, gaugeRows: 24,
-  },
-  {
-    id: "3",
-    photo: "https://images.unsplash.com/photo-1619608155967-7a5058b2a963?w=800&h=600&fit=crop&auto=format",
-    maker: "Daruma", colorName: "ナチュラルホワイト", colorCode: "#F0EBE3",
-    material: "コットン", gauge: "細", quantity: 8, purchaseDate: "2024-01-20",
-  },
-  {
-    id: "4",
-    photo: "https://images.unsplash.com/photo-1641060889144-1cc91e6871ce?w=800&h=600&fit=crop&auto=format",
-    maker: "Puppy", colorName: "テラコッタ", colorCode: "#C17A5A",
-    material: "アクリル", gauge: "並太", quantity: 2, purchaseDate: "2024-04-10",
-    notes: "バッグ用途。残り2個のため要確認。",
-  },
-  {
-    id: "5",
-    photo: "https://images.unsplash.com/photo-1668072587992-7c0d529d5363?w=800&h=600&fit=crop&auto=format",
-    maker: "Hamanaka", colorName: "ラベンダー", colorCode: "#B39DDB",
-    material: "アルパカ", gauge: "極細", quantity: 4, purchaseDate: "2024-01-08",
-  },
-  {
-    id: "6",
-    photo: "https://images.unsplash.com/photo-1575193506520-45ff0a377fb8?w=800&h=600&fit=crop&auto=format",
-    maker: "Ski毛糸", colorName: "マスタード", colorCode: "#D4A017",
-    material: "ウール", gauge: "合太", quantity: 6, purchaseDate: "2023-12-01",
-    notes: "帽子・手袋セット用。暖かくて使いやすい。",
-  },
-  {
-    id: "7",
-    photo: "https://images.unsplash.com/photo-1637517626851-b3851b92b363?w=800&h=600&fit=crop&auto=format",
-    maker: "Richmore", colorName: "チャコール", colorCode: "#4A4A4A",
-    material: "メリノウール", gauge: "極太", quantity: 1, purchaseDate: "2024-05-02",
-    notes: "残り1個。早めに補充が必要。",
-  },
-  {
-    id: "8",
-    photo: "https://images.unsplash.com/photo-1646282993025-1489baeab7c2?w=800&h=600&fit=crop&auto=format",
-    maker: "Daruma", colorName: "セージグリーン", colorCode: "#8B9E7D",
-    material: "コットン", gauge: "中細", quantity: 7, purchaseDate: "2024-03-22",
-  },
-];
+const initialProducts: Product[] = [];
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -215,13 +165,48 @@ function isDefaultFilter(f: FilterState) {
 function loadInitialItems(): Product[] {
   try {
     const storedItems = window.localStorage.getItem(ITEMS_STORAGE_KEY);
-    if (!storedItems) return initialProducts;
+    if (!storedItems) return [];
 
     const parsedItems: unknown = JSON.parse(storedItems);
-    return Array.isArray(parsedItems) ? parsedItems as Product[] : initialProducts;
+    return Array.isArray(parsedItems) ? parsedItems as Product[] : [];
   } catch {
-    return initialProducts;
+    return [];
   }
+}
+
+function getProductImage(item: Product): string {
+  return item.image ?? item.photo;
+}
+
+function validateImageFile(file: File): string {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return "jpg / png / webp の画像を選択してください";
+  }
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    return "画像は5MB以下にしてください";
+  }
+  return "";
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatWeight(weightG?: number, lengthM?: number): string {
+  if (weightG == null && lengthM == null) return "—";
+  return `${weightG != null ? weightG : "-"}g / ${lengthM != null ? lengthM : "-"}m`;
+}
+
+function formatNeedleRange(min?: number, max?: number): string {
+  if (min == null && max == null) return "—";
+  if (min == null) return `${max}号`;
+  if (max == null || min === max) return `${min}号`;
+  return `${min}号 〜 ${max}号`;
 }
 
 // ─── Shared small components ──────────────────────────────────────────────────
@@ -247,7 +232,7 @@ function TextInput({ value, onChange, placeholder, type = "text" }: {
 }) {
   return (
     <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-      className="w-full px-[16px] py-[12px] h-[44px] bg-[#f2f2f2] rounded-[18px] font-['Nunito',sans-serif] font-light text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+      className="w-full px-[16px] py-[12px] h-[44px] bg-[#f2f2f2] rounded-[18px] font-['Nunito',sans-serif] font-light text-[16px] sm:text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
     />
   );
 }
@@ -339,7 +324,7 @@ function NumberInput({ value, onChange, placeholder }: {
       onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))}
       placeholder={placeholder}
       min={0}
-      className="w-full px-[12px] py-[12px] h-[44px] bg-[#f2f2f2] rounded-[18px] font-['Nunito',sans-serif] font-light text-[14px] text-[#0f0f0f] text-center placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring transition-shadow [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      className="w-full px-[12px] py-[12px] h-[44px] bg-[#f2f2f2] rounded-[18px] font-['Nunito',sans-serif] font-light text-[16px] sm:text-[14px] text-[#0f0f0f] text-center placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring transition-shadow [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
     />
   );
 }
@@ -773,7 +758,7 @@ function EditScreen({ item, onBack, onSave, onDelete }: {
   item: Product; onBack: () => void; onSave: (u: Product) => void; onDelete: () => void;
 }) {
   const [form, setForm] = useState<EditForm>({
-    photoUrl: item.photo, photoFile: null, photoPreview: null,
+    photoUrl: item.image ?? (item.photo !== PRODUCT_PLACEHOLDER_IMAGE ? item.photo : ""), photoFile: null, photoPreview: null, photoError: "",
     maker: item.maker, colorName: item.colorName, colorCode: item.colorCode,
     material: item.material, gauge: item.gauge,
     weightG: item.weightG, lengthM: item.lengthM,
@@ -791,17 +776,25 @@ function EditScreen({ item, onBack, onSave, onDelete }: {
 
   const displayPhoto = form.photoPreview ?? form.photoUrl;
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
-    setForm((prev) => ({ ...prev, photoFile: file, photoPreview: URL.createObjectURL(file) }));
+    const error = validateImageFile(file);
+    if (error) {
+      setForm((prev) => ({ ...prev, photoFile: null, photoError: error }));
+      e.target.value = "";
+      return;
+    }
+    const dataUrl = await readFileAsDataUrl(file);
+    setForm((prev) => ({ ...prev, photoFile: file, photoPreview: dataUrl, photoError: "" }));
   };
 
   const handleSave = () => {
+    const image = form.photoPreview ?? form.photoUrl;
     onSave({
       ...item,
-      photo: form.photoPreview ?? form.photoUrl,
+      photo: image || PRODUCT_PLACEHOLDER_IMAGE,
+      image: image || undefined,
       maker: form.maker, colorName: form.colorName, colorCode: form.colorCode,
       material: form.material, gauge: form.gauge,
       weightG: form.weightG, lengthM: form.lengthM,
@@ -814,11 +807,15 @@ function EditScreen({ item, onBack, onSave, onDelete }: {
   };
 
   const handleClose = () => {
-    if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
     onBack();
   };
 
-  const canSave = form.colorName.trim() !== "" || form.maker.trim() !== "";
+  const handleRemovePhoto = () => {
+    setForm((prev) => ({ ...prev, photoFile: null, photoPreview: null, photoUrl: "", photoError: "" }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const canSave = (form.colorName.trim() !== "" || displayPhoto !== "") && Number.isFinite(form.quantity);
 
   return (
     <motion.div
@@ -844,6 +841,37 @@ function EditScreen({ item, onBack, onSave, onDelete }: {
         </header>
 
         <div className="px-5 py-6 space-y-7 flex-1">
+          <section>
+            <FieldLabel>画像</FieldLabel>
+            <div className="relative w-full bg-[#f2f2f2] rounded-[20px] overflow-hidden cursor-pointer" style={{ height: "236px" }} onClick={() => fileInputRef.current?.click()}>
+              {displayPhoto ? (
+                <img src={displayPhoto} alt="プレビュー" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-[#888] gap-2">
+                  <Camera size={22} />
+                  <p className="font-['Nunito',sans-serif] font-light text-[12px]">写真を追加</p>
+                </div>
+              )}
+              <div className="absolute bottom-[12px] right-[12px] flex items-center gap-[6px] px-[12px] py-[6px] rounded-full bg-[rgba(0,0,0,0.5)]">
+                <Camera size={12} color="white" />
+                <span className="font-['Nunito',sans-serif] font-semibold text-[12px] leading-[16px] text-white">変更</span>
+              </div>
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
+            {displayPhoto && (
+              <button
+                type="button"
+                onClick={handleRemovePhoto}
+                className="mt-2 text-[12px] font-['Nunito',sans-serif] font-light text-[#d0182a] hover:opacity-70 transition-opacity"
+              >
+                画像を削除
+              </button>
+            )}
+            {form.photoError && (
+              <p className="mt-2 font-['Nunito',sans-serif] font-light text-[12px] text-[#d0182a] leading-[16px]">{form.photoError}</p>
+            )}
+          </section>
+
           <section>
             <FieldLabel>メーカー名</FieldLabel>
             <TextInput value={form.maker} onChange={(v) => set("maker", v)} placeholder="例：manufacturer name" />
@@ -931,7 +959,7 @@ function EditScreen({ item, onBack, onSave, onDelete }: {
               onChange={(e) => set("notes", e.target.value)}
               placeholder="例：用途・購入場所・メモなど"
               rows={3}
-              className="w-full px-4 py-3 bg-muted rounded-xl font-['Nunito',sans-serif] font-light text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-shadow"
+              className="w-full px-4 py-3 bg-muted rounded-xl font-['Nunito',sans-serif] font-light text-[16px] sm:text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-shadow"
             />
           </section>
 
@@ -1090,7 +1118,7 @@ function EditScreen({ item, onBack, onSave, onDelete }: {
           <section>
             <FieldLabel>購入日</FieldLabel>
             <input type="date" value={form.purchaseDate} onChange={(e) => set("purchaseDate", e.target.value)}
-              className="w-full px-[16px] h-[44px] bg-[#f2f2f2] rounded-[18px] font-['Nunito',sans-serif] font-light text-[14px] text-[#0f0f0f] focus:outline-none focus:ring-2 focus:ring-ring transition-shadow mt-2"
+              className="w-full px-[16px] h-[44px] bg-[#f2f2f2] rounded-[18px] font-['Nunito',sans-serif] font-light text-[16px] sm:text-[14px] text-[#0f0f0f] focus:outline-none focus:ring-2 focus:ring-ring transition-shadow mt-2"
             />
           </section>
 
@@ -1105,7 +1133,7 @@ function EditScreen({ item, onBack, onSave, onDelete }: {
             <FieldLabel>備考</FieldLabel>
             <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)}
               placeholder="例：用途・購入場所・メモなど" rows={4}
-              className="w-full px-[16px] py-[12px] bg-[#f2f2f2] rounded-[18px] font-['Nunito',sans-serif] font-light text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-shadow"
+              className="w-full px-[16px] py-[12px] bg-[#f2f2f2] rounded-[18px] font-['Nunito',sans-serif] font-light text-[16px] sm:text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-shadow"
             />
           </section>
 
@@ -1171,8 +1199,8 @@ function DetailScreen({ item, onBack, onEdit, onDelete }: {
 
         {/* Image */}
         <div className="relative h-[265px] bg-[#f2f2f2] flex-shrink-0 overflow-hidden">
-          {item.photo
-            ? <img src={item.photo} alt={`${item.maker} ${item.colorName}`} className="absolute inset-0 size-full object-cover" />
+          {getProductImage(item)
+            ? <img src={getProductImage(item)} alt={`${item.maker} ${item.colorName}`} className="absolute inset-0 size-full object-cover" />
             : <div className="w-full h-full" style={{ backgroundColor: item.colorCode }} />
           }
           <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[rgba(0,0,0,0.3)] to-transparent" />
@@ -1235,27 +1263,25 @@ function DetailScreen({ item, onBack, onEdit, onDelete }: {
               <div className="flex items-center justify-between px-[16px] pt-[12px] pb-[12.5px] border-b-[0.5px] border-[rgba(0,0,0,0.08)]">
                 <span className="font-['Nunito',sans-serif] font-light text-[12px] text-[#888] leading-[16px]">重量</span>
                 <span className="font-['Nunito',sans-serif] font-semibold text-[14px] text-[#0f0f0f] leading-[20px]">
-                  {(item.weightG != null || item.lengthM != null)
-                    ? [item.weightG != null && `${item.weightG}g`, item.lengthM != null && `${item.lengthM}m`].filter(Boolean).join(" / ")
-                    : "—"}
+                  {formatWeight(item.weightG, item.lengthM)}
                 </span>
               </div>
               <div className="flex items-center justify-between px-[16px] pt-[12px] pb-[12.5px] border-b-[0.5px] border-[rgba(0,0,0,0.08)]">
                 <span className="font-['Nunito',sans-serif] font-light text-[12px] text-[#888] leading-[16px]">棒針</span>
                 <span className="font-['Nunito',sans-serif] font-semibold text-[14px] text-[#0f0f0f] leading-[20px]">
-                  {item.needleMin != null ? (item.needleMax != null && item.needleMin !== item.needleMax ? `${item.needleMin}号 〜 ${item.needleMax}号` : `${item.needleMin}号`) : "—"}
+                  {formatNeedleRange(item.needleMin, item.needleMax)}
                 </span>
               </div>
               <div className="flex items-center justify-between px-[16px] pt-[12px] pb-[12.5px] border-b-[0.5px] border-[rgba(0,0,0,0.08)]">
                 <span className="font-['Nunito',sans-serif] font-light text-[12px] text-[#888] leading-[16px]">かぎ針</span>
                 <span className="font-['Nunito',sans-serif] font-semibold text-[14px] text-[#0f0f0f] leading-[20px]">
-                  {item.hookMin != null ? (item.hookMax != null && item.hookMin !== item.hookMax ? `${item.hookMin}号 〜 ${item.hookMax}号` : `${item.hookMin}号`) : "—"}
+                  {formatNeedleRange(item.hookMin, item.hookMax)}
                 </span>
               </div>
               <div className="flex items-center justify-between px-[16px] py-[12px]">
                 <span className="font-['Nunito',sans-serif] font-light text-[12px] text-[#888] leading-[16px]">メリヤス編み標準ゲージ</span>
                 <span className="font-['Nunito',sans-serif] font-semibold text-[14px] text-[#0f0f0f] leading-[20px]">
-                  {item.gaugeStitches != null ? `${item.gaugeStitches}目 × ${item.gaugeRows}段` : "—"}
+                  {item.gaugeStitches != null ? `${item.gaugeStitches}目 × ${item.gaugeRows != null ? item.gaugeRows : "-"}段` : "—"}
                 </span>
               </div>
             </div>
@@ -1362,18 +1388,38 @@ function RegisterModal({ isOpen, onClose, onSave }: {
   onSave: (item: Product) => void;
 }) {
   const [form, setForm] = useState<RegisterForm>(INITIAL_REGISTER_FORM);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const set = <K extends keyof RegisterForm>(key: K, value: RegisterForm[K]) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleClose = () => {
-    if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
     setForm(INITIAL_REGISTER_FORM);
     onClose();
   };
 
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const error = validateImageFile(file);
+    if (error) {
+      setForm((prev) => ({ ...prev, photoFile: null, photoError: error }));
+      e.target.value = "";
+      return;
+    }
+    const dataUrl = await readFileAsDataUrl(file);
+    setForm((prev) => ({ ...prev, photoFile: file, photoPreview: dataUrl, photoError: "" }));
+  };
+
+  const handleRemovePhoto = () => {
+    setForm((prev) => ({ ...prev, photoFile: null, photoPreview: null, photoError: "" }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSave = () => {
+    const image = form.photoPreview ?? undefined;
     const newItem: Product = {
       id: String(Date.now()),
-      photo: form.photoPreview ?? PRODUCT_PLACEHOLDER_IMAGE,
+      photo: image ?? PRODUCT_PLACEHOLDER_IMAGE,
+      image,
       maker: form.maker,
       colorName: form.colorName,
       colorCode: form.colorCode,
@@ -1397,7 +1443,7 @@ function RegisterModal({ isOpen, onClose, onSave }: {
     onClose();
   };
 
-  const canSave = form.colorName.trim() !== "" || form.maker.trim() !== "";
+  const canSave = (form.colorName.trim() !== "" || form.photoPreview !== null) && Number.isFinite(form.quantity);
 
   return (
     <AnimatePresence>
@@ -1425,6 +1471,37 @@ function RegisterModal({ isOpen, onClose, onSave }: {
             </header>
 
             <div className="px-5 py-6 space-y-7 flex-1">
+              <section>
+                <FieldLabel>画像</FieldLabel>
+                <div className="relative w-full bg-[#f2f2f2] rounded-[20px] overflow-hidden cursor-pointer" style={{ height: "236px" }} onClick={() => fileInputRef.current?.click()}>
+                  {form.photoPreview ? (
+                    <img src={form.photoPreview} alt="プレビュー" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-[#888] gap-2">
+                      <Camera size={22} />
+                      <p className="font-['Nunito',sans-serif] font-light text-[12px]">写真を追加</p>
+                    </div>
+                  )}
+                  <div className="absolute bottom-[12px] right-[12px] flex items-center gap-[6px] px-[12px] py-[6px] rounded-full bg-[rgba(0,0,0,0.5)]">
+                    <Camera size={12} color="white" />
+                    <span className="font-['Nunito',sans-serif] font-semibold text-[12px] leading-[16px] text-white">選択</span>
+                  </div>
+                </div>
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
+                {form.photoPreview && (
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="mt-2 text-[12px] font-['Nunito',sans-serif] font-light text-[#d0182a] hover:opacity-70 transition-opacity"
+                  >
+                    画像を削除
+                  </button>
+                )}
+                {form.photoError && (
+                  <p className="mt-2 font-['Nunito',sans-serif] font-light text-[12px] text-[#d0182a] leading-[16px]">{form.photoError}</p>
+                )}
+              </section>
+
               <section>
                 <FieldLabel>メーカー名</FieldLabel>
                 <TextInput value={form.maker} onChange={(v) => set("maker", v)} placeholder="例：manufacturer name" />
@@ -1517,7 +1594,7 @@ function RegisterModal({ isOpen, onClose, onSave }: {
                   onChange={(e) => set("notes", e.target.value)}
                   placeholder="例：用途・購入場所・メモなど"
                   rows={3}
-                  className="w-full px-4 py-3 bg-muted rounded-xl font-['Nunito',sans-serif] font-light text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-shadow"
+                  className="w-full px-4 py-3 bg-muted rounded-xl font-['Nunito',sans-serif] font-light text-[16px] sm:text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-shadow"
                 />
               </section>
 
@@ -1541,8 +1618,8 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
     >
       {/* Image area */}
       <div className="h-[150px] w-full bg-[#f2f2f2] relative">
-        {item.photo
-          ? <img src={item.photo} alt={`${item.maker} ${item.colorName}`} className="absolute inset-0 max-w-none object-cover pointer-events-none size-full" loading="lazy" />
+        {getProductImage(item)
+          ? <img src={getProductImage(item)} alt={`${item.maker} ${item.colorName}`} className="absolute inset-0 max-w-none object-cover pointer-events-none size-full" loading="lazy" />
           : <div className="w-full h-full" style={{ backgroundColor: item.colorCode }} />
         }
         {/* Quantity badge */}
