@@ -1808,7 +1808,7 @@ export default function App() {
                 placeholder="ブランド・色・素材で検索"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-[36px] pr-9 h-[40px] bg-[#f5f5f5] rounded-[18px] font-['Nunito',sans-serif] font-light text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+                className="w-full pl-[36px] pr-9 h-[40px] bg-[#f5f5f5] rounded-[18px] font-['Nunito',sans-serif] font-light text-[16px] sm:text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
               />
               {search && (
                 <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#888] hover:text-foreground transition-colors">
