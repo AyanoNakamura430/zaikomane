@@ -5,6 +5,7 @@ import {
   ArrowUpDown, Check,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { supabase } from "../lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,55 @@ type Product = {
   hookMax?: number;
   gaugeStitches?: number;
   gaugeRows?: number;
+};
+
+type ZaikomaneItemRow = {
+  id: string;
+  photo: string | null;
+  image: string | null;
+  maker: string | null;
+  color_name: string | null;
+  color_code: string | null;
+  material: string | null;
+  gauge: string | null;
+  quantity: number | null;
+  purchase_date: string | null;
+  url: string | null;
+  notes: string | null;
+  weight_g: number | null;
+  length_m: number | null;
+  needle_min: number | null;
+  needle_max: number | null;
+  hook_min: number | null;
+  hook_max: number | null;
+  gauge_stitches: number | null;
+  gauge_rows: number | null;
+  created_at: string | null;
+};
+
+type ZaikomaneItemInsert = {
+  photo: string;
+  maker: string;
+  color_name: string;
+  color_code: string;
+  material: string;
+  gauge: string;
+  quantity: number;
+  purchase_date: string | null;
+  url: string | null;
+  notes: string | null;
+  weight_g: number | null;
+  length_m: number | null;
+  needle_min: number | null;
+  needle_max: number | null;
+  hook_min: number | null;
+  hook_max: number | null;
+  gauge_stitches: number | null;
+  gauge_rows: number | null;
+};
+
+type ZaikomaneItemUpdate = ZaikomaneItemInsert & {
+  updated_at: string;
 };
 
 type SortOption = "date_desc" | "date_asc" | "qty_desc" | "qty_asc" | "maker" | "color";
@@ -172,6 +222,63 @@ function loadInitialItems(): Product[] {
   } catch {
     return [];
   }
+}
+
+function toProduct(row: ZaikomaneItemRow): Product {
+  const image = row.image ?? row.photo ?? undefined;
+
+  return {
+    id: row.id,
+    photo: image ?? PRODUCT_PLACEHOLDER_IMAGE,
+    image,
+    maker: row.maker ?? "",
+    colorName: row.color_name ?? "",
+    colorCode: row.color_code ?? "#8B6E52",
+    material: row.material ?? "",
+    gauge: row.gauge ?? "",
+    quantity: row.quantity ?? 0,
+    purchaseDate: row.purchase_date ?? "",
+    url: row.url ?? undefined,
+    notes: row.notes ?? undefined,
+    weightG: row.weight_g ?? undefined,
+    lengthM: row.length_m ?? undefined,
+    needleMin: row.needle_min ?? undefined,
+    needleMax: row.needle_max ?? undefined,
+    hookMin: row.hook_min ?? undefined,
+    hookMax: row.hook_max ?? undefined,
+    gaugeStitches: row.gauge_stitches ?? undefined,
+    gaugeRows: row.gauge_rows ?? undefined,
+  };
+}
+
+function toZaikomaneItemInsert(item: Product): ZaikomaneItemInsert {
+  return {
+    photo: item.photo,
+    maker: item.maker,
+    color_name: item.colorName,
+    color_code: item.colorCode,
+    material: item.material,
+    gauge: item.gauge,
+    quantity: item.quantity,
+    purchase_date: item.purchaseDate || null,
+    url: item.url ?? null,
+    notes: item.notes ?? null,
+    weight_g: item.weightG ?? null,
+    length_m: item.lengthM ?? null,
+    needle_min: item.needleMin ?? null,
+    needle_max: item.needleMax ?? null,
+    hook_min: item.hookMin ?? null,
+    hook_max: item.hookMax ?? null,
+    gauge_stitches: item.gaugeStitches ?? null,
+    gauge_rows: item.gaugeRows ?? null,
+  };
+}
+
+function toZaikomaneItemUpdate(item: Product): ZaikomaneItemUpdate {
+  return {
+    ...toZaikomaneItemInsert(item),
+    updated_at: new Date().toISOString(),
+  };
 }
 
 function getProductImage(item: Product): string {
@@ -1414,10 +1521,10 @@ function RegisterModal({ isOpen, onClose, onSave }: {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const image = form.photoPreview ?? undefined;
     const newItem: Product = {
-      id: String(Date.now()),
+      id: "",
       photo: image ?? PRODUCT_PLACEHOLDER_IMAGE,
       image,
       maker: form.maker,
@@ -1438,9 +1545,30 @@ function RegisterModal({ isOpen, onClose, onSave }: {
       url: form.url || undefined,
       notes: form.notes || undefined,
     };
-    onSave(newItem);
-    setForm(INITIAL_REGISTER_FORM);
-    onClose();
+
+    try {
+      const { data, error } = await supabase
+        .from("zaikomane_items")
+        .insert(toZaikomaneItemInsert(newItem))
+        .select("*")
+        .single();
+
+      if (error) {
+        console.error("Failed to insert zaikomane_items into Supabase.", error);
+        return;
+      }
+
+      if (!data) {
+        console.error("Failed to insert zaikomane_items into Supabase. No data returned.");
+        return;
+      }
+
+      onSave(toProduct(data as ZaikomaneItemRow));
+      setForm(INITIAL_REGISTER_FORM);
+      onClose();
+    } catch (error) {
+      console.error("Failed to insert zaikomane_items into Supabase.", error);
+    }
   };
 
   const canSave = (form.colorName.trim() !== "" || form.photoPreview !== null) && Number.isFinite(form.quantity);
@@ -1688,7 +1816,8 @@ function EmptyState({ hasFilter }: { hasFilter: boolean }) {
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [items, setItems] = useState<Product[]>(loadInitialItems);
+  const [items, setItems] = useState<Product[]>([]);
+  const [hasLoadedInitialItems, setHasLoadedInitialItems] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -1697,12 +1826,51 @@ export default function App() {
   const [editingItem, setEditingItem] = useState<Product | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
+    async function fetchInitialItems() {
+      try {
+        const { data, error } = await supabase
+          .from("zaikomane_items")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (!isMounted) return;
+
+        if (error) {
+          console.error("Failed to fetch zaikomane_items from Supabase.", error);
+          setItems(loadInitialItems());
+          return;
+        }
+
+        setItems(((data ?? []) as ZaikomaneItemRow[]).map(toProduct));
+      } catch (error) {
+        if (!isMounted) return;
+        console.error("Failed to fetch zaikomane_items from Supabase.", error);
+        setItems(loadInitialItems());
+      } finally {
+        if (isMounted) {
+          setHasLoadedInitialItems(true);
+        }
+      }
+    }
+
+    fetchInitialItems();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedInitialItems) return;
+
     try {
       window.localStorage.setItem(ITEMS_STORAGE_KEY, JSON.stringify(items));
     } catch {
       // LocalStorage can fail in private browsing or when storage quota is exceeded.
     }
-  }, [items]);
+  }, [hasLoadedInitialItems, items]);
 
   const filtered = useMemo(() => {
     const result = items.filter((item) => {
@@ -1743,16 +1911,54 @@ export default function App() {
     setEditingItem({ ...selectedProduct });
   };
 
-  const handleSaveEdit = (updated: Product) => {
-    setItems((prev) => prev.map((it) => (it.id === updated.id ? updated : it)));
-    setSelectedItem(updated);
-    setEditingItem(null);
+  const handleSaveEdit = async (updated: Product) => {
+    if (!editingItem) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("zaikomane_items")
+        .update(toZaikomaneItemUpdate(updated))
+        .eq("id", editingItem.id)
+        .select("*")
+        .single();
+
+      if (error) {
+        console.error("Failed to update zaikomane_items in Supabase.", error);
+        return;
+      }
+
+      if (!data) {
+        console.error("Failed to update zaikomane_items in Supabase. No data returned.");
+        return;
+      }
+
+      const updatedItem = toProduct(data as ZaikomaneItemRow);
+      setItems((prev) => prev.map((it) => (it.id === updatedItem.id ? updatedItem : it)));
+      setSelectedItem((prev) => (prev?.id === updatedItem.id ? updatedItem : prev));
+      setEditingItem(null);
+    } catch (error) {
+      console.error("Failed to update zaikomane_items in Supabase.", error);
+    }
   };
 
-  const handleDeleteProduct = (productId: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== productId));
-    setEditingItem(null);
-    setSelectedItem(null);
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      const { error } = await supabase
+        .from("zaikomane_items")
+        .delete()
+        .eq("id", productId);
+
+      if (error) {
+        console.error("Failed to delete zaikomane_items from Supabase.", error);
+        return;
+      }
+
+      setItems((prev) => prev.filter((item) => item.id !== productId));
+      setEditingItem(null);
+      setSelectedItem(null);
+    } catch (error) {
+      console.error("Failed to delete zaikomane_items from Supabase.", error);
+    }
   };
 
   const handleRegisterSave = (newItem: Product) => {
