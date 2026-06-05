@@ -2245,7 +2245,6 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="flex flex-col items-end gap-[8px]">
               <button
                 type="button"
                 onClick={handleLogout}
@@ -2253,8 +2252,25 @@ export default function App() {
               >
                 logout
               </button>
+            </div>
 
-              {/* Filter button */}
+            {/* Search bar */}
+            <div className="mt-[16px] flex items-center gap-2">
+              <div className="relative flex-1">
+              <Search size={15} className="absolute left-[14px] top-1/2 -translate-y-1/2 text-[#888] pointer-events-none" />
+              <input
+                type="text"
+                placeholder="ブランド・色・素材で検索"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-[36px] pr-9 h-[40px] bg-[#f5f5f5] rounded-[18px] font-['Nunito',sans-serif] font-light text-[16px] sm:text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+              />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#888] hover:text-foreground transition-colors">
+                  <X size={14} />
+                </button>
+              )}
+              </div>
               <button
                 onClick={() => setIsFilterOpen(true)}
                 className={`relative w-[36px] h-[36px] rounded-full flex items-center justify-center transition-colors ${
@@ -2271,24 +2287,6 @@ export default function App() {
                   </span>
                 )}
               </button>
-            </div>
-            </div>
-
-            {/* Search bar */}
-            <div className="relative mt-[16px]">
-              <Search size={15} className="absolute left-[14px] top-1/2 -translate-y-1/2 text-[#888] pointer-events-none" />
-              <input
-                type="text"
-                placeholder="ブランド・色・素材で検索"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-[36px] pr-9 h-[40px] bg-[#f5f5f5] rounded-[18px] font-['Nunito',sans-serif] font-light text-[16px] sm:text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
-              />
-              {search && (
-                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#888] hover:text-foreground transition-colors">
-                  <X size={14} />
-                </button>
-              )}
             </div>
           </div>
 
