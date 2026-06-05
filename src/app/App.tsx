@@ -5,6 +5,7 @@ import {
   ArrowUpDown, Check,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -56,7 +57,7 @@ type ZaikomaneItemRow = {
   created_at: string | null;
 };
 
-type ZaikomaneItemInsert = {
+type ZaikomaneItemPayload = {
   photo: string;
   maker: string;
   color_name: string;
@@ -77,7 +78,11 @@ type ZaikomaneItemInsert = {
   gauge_rows: number | null;
 };
 
-type ZaikomaneItemUpdate = ZaikomaneItemInsert & {
+type ZaikomaneItemInsert = ZaikomaneItemPayload & {
+  user_id: string;
+};
+
+type ZaikomaneItemUpdate = ZaikomaneItemPayload & {
   updated_at: string;
 };
 
@@ -251,7 +256,7 @@ function toProduct(row: ZaikomaneItemRow): Product {
   };
 }
 
-function toZaikomaneItemInsert(item: Product): ZaikomaneItemInsert {
+function toZaikomaneItemPayload(item: Product): ZaikomaneItemPayload {
   return {
     photo: item.photo,
     maker: item.maker,
@@ -274,9 +279,16 @@ function toZaikomaneItemInsert(item: Product): ZaikomaneItemInsert {
   };
 }
 
+function toZaikomaneItemInsert(item: Product, userId: string): ZaikomaneItemInsert {
+  return {
+    ...toZaikomaneItemPayload(item),
+    user_id: userId,
+  };
+}
+
 function toZaikomaneItemUpdate(item: Product): ZaikomaneItemUpdate {
   return {
-    ...toZaikomaneItemInsert(item),
+    ...toZaikomaneItemPayload(item),
     updated_at: new Date().toISOString(),
   };
 }
@@ -302,6 +314,35 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+async function uploadProductImage(file: File, userId: string): Promise<string | null> {
+  const path = `${userId}/${Date.now()}-${file.name}`;
+
+  try {
+    const { error } = await supabase.storage
+      .from("product-images")
+      .upload(path, file);
+
+    if (error) {
+      console.error("Failed to upload product image to Supabase Storage.", error);
+      return null;
+    }
+
+    const { data } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(path);
+
+    if (!data.publicUrl) {
+      console.error("Failed to get public URL for uploaded product image.");
+      return null;
+    }
+
+    return data.publicUrl;
+  } catch (error) {
+    console.error("Failed to upload product image to Supabase Storage.", error);
+    return null;
+  }
 }
 
 function formatWeight(weightG?: number, lengthM?: number): string {
@@ -341,6 +382,116 @@ function TextInput({ value, onChange, placeholder, type = "text" }: {
     <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
       className="w-full px-[16px] py-[12px] h-[44px] bg-[#f2f2f2] rounded-[18px] font-['Nunito',sans-serif] font-light text-[16px] sm:text-[14px] text-[#0f0f0f] placeholder:text-[#888] focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
     />
+  );
+}
+
+function LoginScreen({ onAuthenticated }: { onAuthenticated: (session: Session | null) => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSignIn = async () => {
+    setMessage("");
+    setIsSubmitting(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error("Failed to sign in with Supabase Auth.", error);
+        setMessage("ログインできませんでした。メールアドレスとパスワードを確認してください。");
+        return;
+      }
+
+      onAuthenticated(data.session);
+    } catch (error) {
+      console.error("Failed to sign in with Supabase Auth.", error);
+      setMessage("ログインできませんでした。時間をおいて再度お試しください。");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSignUp = async () => {
+    setMessage("");
+    setIsSubmitting(true);
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error("Failed to sign up with Supabase Auth.", error);
+        setMessage("新規登録できませんでした。入力内容を確認してください。");
+        return;
+      }
+
+      onAuthenticated(data.session);
+      setMessage(data.session ? "" : "確認メールを送信しました。メールを確認してください。");
+    } catch (error) {
+      console.error("Failed to sign up with Supabase Auth.", error);
+      setMessage("新規登録できませんでした。時間をおいて再度お試しください。");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const canSubmit = email.trim() !== "" && password.trim() !== "" && !isSubmitting;
+
+  return (
+    <div className="min-h-screen bg-background font-sans">
+      <div className="max-w-lg mx-auto min-h-screen px-[25px] py-[48px] flex flex-col justify-center">
+        <div className="mb-8">
+          <h1 className="font-['Megrim',sans-serif] text-[40px] leading-[40px] tracking-[-0.8px] text-[#0f0f0f] not-italic">k-to.</h1>
+          <p className="font-['Nunito',sans-serif] font-normal text-[13px] leading-[20px] text-[#888] mt-[8px]">
+            Sign in to manage your yarn inventory.
+          </p>
+        </div>
+
+        <div className="space-y-5">
+          <section>
+            <FieldLabel>email</FieldLabel>
+            <TextInput value={email} onChange={setEmail} placeholder="you@example.com" type="email" />
+          </section>
+
+          <section>
+            <FieldLabel>password</FieldLabel>
+            <TextInput value={password} onChange={setPassword} placeholder="password" type="password" />
+          </section>
+
+          {message && (
+            <p className="font-['Nunito',sans-serif] font-light text-[12px] leading-[18px] text-[#d0182a]">
+              {message}
+            </p>
+          )}
+
+          <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={handleSignIn}
+              disabled={!canSubmit}
+              className="w-full rounded-[20px] bg-[#0f0f0f] py-[12.2px] font-['Nunito',sans-serif] text-[14px] font-light text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              login
+            </button>
+            <button
+              type="button"
+              onClick={handleSignUp}
+              disabled={!canSubmit}
+              className="w-full rounded-[20px] bg-[#f2f2f2] py-[12.2px] font-['Nunito',sans-serif] text-[14px] font-light text-[#0f0f0f] transition-colors hover:bg-[#e8e8e8] disabled:opacity-40"
+            >
+              sign up
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -861,8 +1012,8 @@ function FilterDialog({ isOpen, filter, resultCount, onChange, onClose }: {
 
 // ─── Edit Screen ──────────────────────────────────────────────────────────────
 
-function EditScreen({ item, onBack, onSave, onDelete }: {
-  item: Product; onBack: () => void; onSave: (u: Product) => void; onDelete: () => void;
+function EditScreen({ item, onBack, onSave, onDelete, userId }: {
+  item: Product; onBack: () => void; onSave: (u: Product) => void; onDelete: () => void; userId: string | null;
 }) {
   const [form, setForm] = useState<EditForm>({
     photoUrl: item.image ?? (item.photo !== PRODUCT_PLACEHOLDER_IMAGE ? item.photo : ""), photoFile: null, photoPreview: null, photoError: "",
@@ -896,8 +1047,20 @@ function EditScreen({ item, onBack, onSave, onDelete }: {
     setForm((prev) => ({ ...prev, photoFile: file, photoPreview: dataUrl, photoError: "" }));
   };
 
-  const handleSave = () => {
-    const image = form.photoPreview ?? form.photoUrl;
+  const handleSave = async () => {
+    let image = form.photoUrl;
+
+    if (form.photoFile) {
+      if (!userId) {
+        console.error("Failed to upload product image. No authenticated user.");
+        return;
+      }
+
+      const uploadedUrl = await uploadProductImage(form.photoFile, userId);
+      if (!uploadedUrl) return;
+      image = uploadedUrl;
+    }
+
     onSave({
       ...item,
       photo: image || PRODUCT_PLACEHOLDER_IMAGE,
@@ -1489,10 +1652,11 @@ function DetailScreen({ item, onBack, onEdit, onDelete }: {
 
 // ─── Register Modal ───────────────────────────────────────────────────────────
 
-function RegisterModal({ isOpen, onClose, onSave }: {
+function RegisterModal({ isOpen, onClose, onSave, userId }: {
   isOpen: boolean;
   onClose: () => void;
   onSave: (item: Product) => void;
+  userId: string | null;
 }) {
   const [form, setForm] = useState<RegisterForm>(INITIAL_REGISTER_FORM);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1522,7 +1686,19 @@ function RegisterModal({ isOpen, onClose, onSave }: {
   };
 
   const handleSave = async () => {
-    const image = form.photoPreview ?? undefined;
+    if (!userId) {
+      console.error("Failed to insert zaikomane_items into Supabase. No authenticated user.");
+      return;
+    }
+
+    let image: string | undefined;
+
+    if (form.photoFile) {
+      const uploadedUrl = await uploadProductImage(form.photoFile, userId);
+      if (!uploadedUrl) return;
+      image = uploadedUrl;
+    }
+
     const newItem: Product = {
       id: "",
       photo: image ?? PRODUCT_PLACEHOLDER_IMAGE,
@@ -1549,7 +1725,7 @@ function RegisterModal({ isOpen, onClose, onSave }: {
     try {
       const { data, error } = await supabase
         .from("zaikomane_items")
-        .insert(toZaikomaneItemInsert(newItem))
+        .insert(toZaikomaneItemInsert(newItem, userId))
         .select("*")
         .single();
 
@@ -1818,6 +1994,8 @@ function EmptyState({ hasFilter }: { hasFilter: boolean }) {
 export default function App() {
   const [items, setItems] = useState<Product[]>([]);
   const [hasLoadedInitialItems, setHasLoadedInitialItems] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -1826,6 +2004,55 @@ export default function App() {
   const [editingItem, setEditingItem] = useState<Product | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
+    async function initializeSession() {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+
+        if (!isMounted) return;
+
+        if (error) {
+          console.error("Failed to get Supabase Auth session.", error);
+          setSession(null);
+          return;
+        }
+
+        setSession(data.session);
+      } catch (error) {
+        if (!isMounted) return;
+        console.error("Failed to get Supabase Auth session.", error);
+        setSession(null);
+      } finally {
+        if (isMounted) {
+          setIsAuthLoading(false);
+        }
+      }
+    }
+
+    initializeSession();
+
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setIsAuthLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session) {
+      setItems([]);
+      setHasLoadedInitialItems(false);
+      setSelectedItem(null);
+      setEditingItem(null);
+      setIsRegisterOpen(false);
+      return;
+    }
+
     let isMounted = true;
 
     async function fetchInitialItems() {
@@ -1860,7 +2087,7 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     if (!hasLoadedInitialItems) return;
@@ -1965,12 +2192,43 @@ export default function App() {
     setItems((prev) => [newItem, ...prev]);
   };
 
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Failed to sign out from Supabase Auth.", error);
+        return;
+      }
+
+      setSession(null);
+      setItems([]);
+      setSelectedItem(null);
+      setEditingItem(null);
+      setIsRegisterOpen(false);
+    } catch (error) {
+      console.error("Failed to sign out from Supabase Auth.", error);
+    }
+  };
+
   const hasActiveFilter = !isDefaultFilter(filter) || search.trim().length > 0;
   const filterBadgeCount =
     (filter.sort !== "date_desc" ? 1 : 0) +
     filter.materials.length +
     filter.gauges.length +
     (filter.stock !== "all" ? 1 : 0);
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-background font-sans flex items-center justify-center">
+        <p className="font-['Nunito',sans-serif] font-light text-[14px] leading-[20px] text-[#888]">loading...</p>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <LoginScreen onAuthenticated={setSession} />;
+  }
 
   return (
     <div className="min-h-screen bg-background font-sans">
@@ -1986,6 +2244,14 @@ export default function App() {
                   {filtered.length}点の在庫
                 </p>
               </div>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="mr-2 h-[36px] px-3 rounded-full bg-[#f5f5f5] text-[#888] hover:bg-accent hover:text-accent-foreground transition-colors font-['Nunito',sans-serif] font-light text-[12px]"
+              >
+                logout
+              </button>
 
               {/* Filter button */}
               <button
@@ -2083,12 +2349,18 @@ export default function App() {
             onBack={() => setEditingItem(null)}
             onSave={handleSaveEdit}
             onDelete={() => handleDeleteProduct(editingProduct.id)}
+            userId={session.user.id}
           />
         )}
       </AnimatePresence>
 
       {/* ── Register modal ── */}
-      <RegisterModal isOpen={isRegisterOpen} onClose={() => setIsRegisterOpen(false)} onSave={handleRegisterSave} />
+      <RegisterModal
+        isOpen={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+        onSave={handleRegisterSave}
+        userId={session.user.id}
+      />
     </div>
   );
 }
