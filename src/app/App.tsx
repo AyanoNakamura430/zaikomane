@@ -2245,10 +2245,11 @@ export default function App() {
                 </p>
               </div>
 
+              <div className="flex flex-col items-end gap-[8px]">
               <button
                 type="button"
                 onClick={handleLogout}
-                className="mr-2 h-[36px] px-3 rounded-full bg-[#f5f5f5] text-[#888] hover:bg-accent hover:text-accent-foreground transition-colors font-['Nunito',sans-serif] font-light text-[12px]"
+                className="h-[36px] px-3 rounded-full bg-[#f5f5f5] text-[#888] hover:bg-accent hover:text-accent-foreground transition-colors font-['Nunito',sans-serif] font-light text-[12px]"
               >
                 logout
               </button>
@@ -2270,6 +2271,7 @@ export default function App() {
                   </span>
                 )}
               </button>
+            </div>
             </div>
 
             {/* Search bar */}
