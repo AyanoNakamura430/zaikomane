@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import {
   Search, Plus, X, Package, SlidersHorizontal, Camera,
-  ChevronLeft, ChevronRight, Pencil, ExternalLink, AlertCircle, Trash2,
+  ChevronLeft, ChevronRight, Pencil, Copy, ExternalLink, AlertCircle, Trash2,
   ArrowUpDown, Check,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -15,6 +15,7 @@ type Product = {
   photo: string;
   image?: string;
   maker: string;
+  productName?: string;
   colorName: string;
   colorCode: string;
   material: string;
@@ -38,6 +39,7 @@ type ZaikomaneItemRow = {
   photo: string | null;
   image: string | null;
   maker: string | null;
+  product_name: string | null;
   color_name: string | null;
   color_code: string | null;
   material: string | null;
@@ -60,6 +62,7 @@ type ZaikomaneItemRow = {
 type ZaikomaneItemPayload = {
   photo: string;
   maker: string;
+  product_name: string | null;
   color_name: string;
   color_code: string;
   material: string;
@@ -97,10 +100,12 @@ type FilterState = {
 };
 
 type RegisterForm = {
+  photoUrl: string;
   photoFile: File | null;
   photoPreview: string | null;
   photoError: string;
   maker: string;
+  productName: string;
   colorName: string;
   colorCode: string;
   material: string;
@@ -125,6 +130,7 @@ type EditForm = {
   photoPreview: string | null;
   photoError: string;
   maker: string;
+  productName: string;
   colorName: string;
   colorCode: string;
   material: string;
@@ -168,10 +174,12 @@ const STOCK_OPTIONS: { value: StockFilter; label: string }[] = [
 ];
 
 const INITIAL_REGISTER_FORM: RegisterForm = {
+  photoUrl: "",
   photoFile: null,
   photoPreview: null,
   photoError: "",
   maker: "",
+  productName: "",
   colorName: "",
   colorCode: "#8B6E52",
   material: "",
@@ -237,6 +245,7 @@ function toProduct(row: ZaikomaneItemRow): Product {
     photo: image ?? PRODUCT_PLACEHOLDER_IMAGE,
     image,
     maker: row.maker ?? "",
+    productName: row.product_name ?? undefined,
     colorName: row.color_name ?? "",
     colorCode: row.color_code ?? "#8B6E52",
     material: row.material ?? "",
@@ -256,10 +265,40 @@ function toProduct(row: ZaikomaneItemRow): Product {
   };
 }
 
+function toRegisterFormFromProduct(item: Product): RegisterForm {
+  const image = getProductImage(item);
+
+  return {
+    photoUrl: image !== PRODUCT_PLACEHOLDER_IMAGE ? image : "",
+    photoFile: null,
+    photoPreview: null,
+    photoError: "",
+    maker: item.maker,
+    productName: item.productName ?? "",
+    colorName: item.colorName,
+    colorCode: item.colorCode,
+    material: item.material,
+    gauge: item.gauge,
+    weightG: item.weightG,
+    lengthM: item.lengthM,
+    needleMin: item.needleMin,
+    needleMax: item.needleMax,
+    hookMin: item.hookMin,
+    hookMax: item.hookMax,
+    gaugeStitches: item.gaugeStitches,
+    gaugeRows: item.gaugeRows,
+    quantity: item.quantity,
+    purchaseDate: item.purchaseDate,
+    url: item.url ?? "",
+    notes: item.notes ?? "",
+  };
+}
+
 function toZaikomaneItemPayload(item: Product): ZaikomaneItemPayload {
   return {
     photo: item.photo,
     maker: item.maker,
+    product_name: item.productName || null,
     color_name: item.colorName,
     color_code: item.colorCode,
     material: item.material,
@@ -1017,7 +1056,7 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
 }) {
   const [form, setForm] = useState<EditForm>({
     photoUrl: item.image ?? (item.photo !== PRODUCT_PLACEHOLDER_IMAGE ? item.photo : ""), photoFile: null, photoPreview: null, photoError: "",
-    maker: item.maker, colorName: item.colorName, colorCode: item.colorCode,
+    maker: item.maker, productName: item.productName ?? "", colorName: item.colorName, colorCode: item.colorCode,
     material: item.material, gauge: item.gauge,
     weightG: item.weightG, lengthM: item.lengthM,
     needleMin: item.needleMin, needleMax: item.needleMax,
@@ -1065,7 +1104,7 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
       ...item,
       photo: image || PRODUCT_PLACEHOLDER_IMAGE,
       image: image || undefined,
-      maker: form.maker, colorName: form.colorName, colorCode: form.colorCode,
+      maker: form.maker, productName: form.productName || undefined, colorName: form.colorName, colorCode: form.colorCode,
       material: form.material, gauge: form.gauge,
       weightG: form.weightG, lengthM: form.lengthM,
       needleMin: form.needleMin, needleMax: form.needleMax,
@@ -1145,6 +1184,11 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
           <section>
             <FieldLabel>メーカー名</FieldLabel>
             <TextInput value={form.maker} onChange={(v) => set("maker", v)} placeholder="例：manufacturer name" />
+          </section>
+
+          <section>
+            <FieldLabel>毛糸名称</FieldLabel>
+            <TextInput value={form.productName} onChange={(v) => set("productName", v)} placeholder="例：毛糸名称" />
           </section>
 
           <section>
@@ -1290,6 +1334,11 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
           <section>
             <FieldLabel>メーカー名</FieldLabel>
             <TextInput value={form.maker} onChange={(v) => set("maker", v)} placeholder="例：manufacturer name" />
+          </section>
+
+          <section>
+            <FieldLabel>毛糸名称</FieldLabel>
+            <TextInput value={form.productName} onChange={(v) => set("productName", v)} placeholder="例：毛糸名称" />
           </section>
 
           {/* 色 */}
@@ -1439,8 +1488,8 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
 
 // ─── Detail Screen ────────────────────────────────────────────────────────────
 
-function DetailScreen({ item, onBack, onEdit, onDelete }: {
-  item: Product; onBack: () => void; onEdit: () => void; onDelete: () => void;
+function DetailScreen({ item, onBack, onEdit, onCopy, onDelete }: {
+  item: Product; onBack: () => void; onEdit: () => void; onCopy: () => void; onDelete: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isOne = item.quantity === 1;
@@ -1460,10 +1509,16 @@ function DetailScreen({ item, onBack, onEdit, onDelete }: {
               <ChevronLeft size={20} strokeWidth={1.5} />
               <span className="font-['Nunito',sans-serif] font-light text-[14px] leading-[20px]">return</span>
             </button>
-            <button onClick={onEdit} className="flex items-center gap-[6px] border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#f5f5f5] transition-colors">
-              <Pencil size={13} strokeWidth={1.5} />
-              <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px]">edit</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={onCopy} className="flex items-center gap-[6px] border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#f5f5f5] transition-colors">
+                <Copy size={13} strokeWidth={1.5} />
+                <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px]">copy</span>
+              </button>
+              <button onClick={onEdit} className="flex items-center gap-[6px] border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#f5f5f5] transition-colors">
+                <Pencil size={13} strokeWidth={1.5} />
+                <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px]">edit</span>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -1481,6 +1536,10 @@ function DetailScreen({ item, onBack, onEdit, onDelete }: {
 
           {/* Maker */}
           <p className="font-['Nunito',sans-serif] font-light text-[11px] text-[#888] tracking-[1.1px] uppercase leading-[16.5px]">{item.maker}</p>
+
+          {item.productName && (
+            <p className="mt-[6px] font-['Nunito',sans-serif] font-light text-[14px] text-[#0f0f0f] leading-[20px]">{item.productName}</p>
+          )}
 
           {/* Color dot + name */}
           <div className="flex gap-[10px] items-center mt-[10px]">
@@ -1652,15 +1711,24 @@ function DetailScreen({ item, onBack, onEdit, onDelete }: {
 
 // ─── Register Modal ───────────────────────────────────────────────────────────
 
-function RegisterModal({ isOpen, onClose, onSave, userId }: {
+function RegisterModal({ isOpen, onClose, onSave, userId, initialForm, isCopyMode = false }: {
   isOpen: boolean;
   onClose: () => void;
   onSave: (item: Product) => void;
   userId: string | null;
+  initialForm?: RegisterForm | null;
+  isCopyMode?: boolean;
 }) {
   const [form, setForm] = useState<RegisterForm>(INITIAL_REGISTER_FORM);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const set = <K extends keyof RegisterForm>(key: K, value: RegisterForm[K]) => setForm((prev) => ({ ...prev, [key]: value }));
+  const displayPhoto = form.photoPreview ?? form.photoUrl;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setForm(initialForm ?? INITIAL_REGISTER_FORM);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [isOpen, initialForm]);
 
   const handleClose = () => {
     setForm(INITIAL_REGISTER_FORM);
@@ -1681,7 +1749,7 @@ function RegisterModal({ isOpen, onClose, onSave, userId }: {
   };
 
   const handleRemovePhoto = () => {
-    setForm((prev) => ({ ...prev, photoFile: null, photoPreview: null, photoError: "" }));
+    setForm((prev) => ({ ...prev, photoUrl: "", photoFile: null, photoPreview: null, photoError: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1691,7 +1759,7 @@ function RegisterModal({ isOpen, onClose, onSave, userId }: {
       return;
     }
 
-    let image: string | undefined;
+    let image = form.photoUrl || undefined;
 
     if (form.photoFile) {
       const uploadedUrl = await uploadProductImage(form.photoFile, userId);
@@ -1704,6 +1772,7 @@ function RegisterModal({ isOpen, onClose, onSave, userId }: {
       photo: image ?? PRODUCT_PLACEHOLDER_IMAGE,
       image,
       maker: form.maker,
+      productName: form.productName || undefined,
       colorName: form.colorName,
       colorCode: form.colorCode,
       material: form.material,
@@ -1747,7 +1816,7 @@ function RegisterModal({ isOpen, onClose, onSave, userId }: {
     }
   };
 
-  const canSave = (form.colorName.trim() !== "" || form.photoPreview !== null) && Number.isFinite(form.quantity);
+  const canSave = (form.colorName.trim() !== "" || displayPhoto !== "") && Number.isFinite(form.quantity);
 
   return (
     <AnimatePresence>
@@ -1765,7 +1834,9 @@ function RegisterModal({ isOpen, onClose, onSave, userId }: {
                   <ChevronLeft size={20} strokeWidth={1.5} />
                   <span className="font-['Nunito',sans-serif] font-light text-[14px] leading-[20px]">cancel</span>
                 </button>
-                <span className="font-['Nunito',sans-serif] font-light text-[16px] leading-[24px] text-[#0f0f0f]">Registration-mode</span>
+                <span className="font-['Nunito',sans-serif] font-light text-[16px] leading-[24px] text-[#0f0f0f]">
+                  {isCopyMode ? "Copy-registration" : "Registration-mode"}
+                </span>
                 <button type="button" onClick={handleSave} disabled={!canSave}
                   className="flex items-center border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] hover:bg-[#f5f5f5] transition-colors disabled:opacity-40"
                 >
@@ -1778,8 +1849,8 @@ function RegisterModal({ isOpen, onClose, onSave, userId }: {
               <section>
                 <FieldLabel>画像</FieldLabel>
                 <div className="relative w-full bg-[#f2f2f2] rounded-[20px] overflow-hidden cursor-pointer" style={{ height: "236px" }} onClick={() => fileInputRef.current?.click()}>
-                  {form.photoPreview ? (
-                    <img src={form.photoPreview} alt="プレビュー" className="w-full h-full object-cover" />
+                  {displayPhoto ? (
+                    <img src={displayPhoto} alt="プレビュー" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-[#888] gap-2">
                       <Camera size={22} />
@@ -1792,7 +1863,7 @@ function RegisterModal({ isOpen, onClose, onSave, userId }: {
                   </div>
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
-                {form.photoPreview && (
+                {displayPhoto && (
                   <button
                     type="button"
                     onClick={handleRemovePhoto}
@@ -1809,6 +1880,11 @@ function RegisterModal({ isOpen, onClose, onSave, userId }: {
               <section>
                 <FieldLabel>メーカー名</FieldLabel>
                 <TextInput value={form.maker} onChange={(v) => set("maker", v)} placeholder="例：manufacturer name" />
+              </section>
+
+              <section>
+                <FieldLabel>毛糸名称</FieldLabel>
+                <TextInput value={form.productName} onChange={(v) => set("productName", v)} placeholder="例：毛糸名称" />
               </section>
 
               <section>
@@ -1942,6 +2018,10 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
         {/* Maker */}
         <p className="font-['Nunito',sans-serif] font-light leading-[15px] text-[#888] text-[10px] tracking-[1px] uppercase whitespace-nowrap">{item.maker}</p>
 
+        {item.productName && (
+          <p className="font-['Nunito',sans-serif] font-light text-[#0f0f0f] text-[11px] leading-[17.5px] truncate">{item.productName}</p>
+        )}
+
         {/* Color dot + name */}
         <div className="flex gap-[6px] items-center min-w-0">
           <div className="rounded-full shrink-0 size-[10px] border border-black/10" style={{ backgroundColor: item.colorCode }} />
@@ -1999,6 +2079,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [copyRegisterForm, setCopyRegisterForm] = useState<RegisterForm | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Product | null>(null);
   const [editingItem, setEditingItem] = useState<Product | null>(null);
@@ -2049,6 +2130,7 @@ export default function App() {
       setHasLoadedInitialItems(false);
       setSelectedItem(null);
       setEditingItem(null);
+      setCopyRegisterForm(null);
       setIsRegisterOpen(false);
       return;
     }
@@ -2138,6 +2220,22 @@ export default function App() {
     setEditingItem({ ...selectedProduct });
   };
 
+  const handleStartCopy = () => {
+    if (!selectedProduct) return;
+    setCopyRegisterForm(toRegisterFormFromProduct(selectedProduct));
+    setIsRegisterOpen(true);
+  };
+
+  const handleOpenRegister = () => {
+    setCopyRegisterForm(null);
+    setIsRegisterOpen(true);
+  };
+
+  const handleCloseRegister = () => {
+    setIsRegisterOpen(false);
+    setCopyRegisterForm(null);
+  };
+
   const handleSaveEdit = async (updated: Product) => {
     if (!editingItem) return;
 
@@ -2190,6 +2288,9 @@ export default function App() {
 
   const handleRegisterSave = (newItem: Product) => {
     setItems((prev) => [newItem, ...prev]);
+    if (copyRegisterForm) {
+      setSelectedItem(newItem);
+    }
   };
 
   const handleLogout = async () => {
@@ -2201,11 +2302,12 @@ export default function App() {
         return;
       }
 
-      setSession(null);
-      setItems([]);
-      setSelectedItem(null);
-      setEditingItem(null);
-      setIsRegisterOpen(false);
+        setSession(null);
+        setItems([]);
+        setSelectedItem(null);
+        setEditingItem(null);
+        setCopyRegisterForm(null);
+        setIsRegisterOpen(false);
     } catch (error) {
       console.error("Failed to sign out from Supabase Auth.", error);
     }
@@ -2309,7 +2411,7 @@ export default function App() {
 
         {/* FAB */}
         <button
-          onClick={() => setIsRegisterOpen(true)}
+          onClick={handleOpenRegister}
           // className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 z-20"
           className="fixed bottom-6 right-6 sm:right-[calc((100vw-520px)/2+24px)] w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 z-20"
           aria-label="毛糸を登録"
@@ -2335,6 +2437,7 @@ export default function App() {
             item={selectedProduct}
             onBack={() => setSelectedItem(null)}
             onEdit={handleStartEdit}
+            onCopy={handleStartCopy}
             onDelete={() => handleDeleteProduct(selectedProduct.id)}
           />
         )}
@@ -2357,9 +2460,11 @@ export default function App() {
       {/* ── Register modal ── */}
       <RegisterModal
         isOpen={isRegisterOpen}
-        onClose={() => setIsRegisterOpen(false)}
+        onClose={handleCloseRegister}
         onSave={handleRegisterSave}
         userId={session.user.id}
+        initialForm={copyRegisterForm}
+        isCopyMode={copyRegisterForm !== null}
       />
     </div>
   );
