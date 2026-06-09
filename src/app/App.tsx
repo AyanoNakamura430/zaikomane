@@ -2022,9 +2022,56 @@ function RegisterModal({ isOpen, onClose, onSave, userId, initialForm, isCopyMod
 
 function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
   const isOne = item.quantity === 1;
+  const tagTouchStartX = useRef<number | null>(null);
+  const suppressCardClick = useRef(false);
+
+  const releaseTagInteraction = () => {
+    window.setTimeout(() => {
+      suppressCardClick.current = false;
+    }, 350);
+  };
+
+  const handleCardClick = () => {
+    if (suppressCardClick.current) {
+      suppressCardClick.current = false;
+      return;
+    }
+    onClick();
+  };
+
+  const handleTagPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    suppressCardClick.current = true;
+  };
+
+  const handleTagPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    releaseTagInteraction();
+  };
+
+  const handleTagTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    tagTouchStartX.current = e.touches[0]?.clientX ?? null;
+    suppressCardClick.current = true;
+  };
+
+  const handleTagTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const currentX = e.touches[0]?.clientX;
+    if (tagTouchStartX.current != null && currentX != null && Math.abs(currentX - tagTouchStartX.current) > 6) {
+      suppressCardClick.current = true;
+    }
+  };
+
+  const handleTagTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    tagTouchStartX.current = null;
+    releaseTagInteraction();
+  };
+
   return (
     <div
-      onClick={onClick}
+      onClick={handleCardClick}
       className="h-[305px] bg-white border-[1.226px] border-[rgba(0,0,0,0.08)] border-solid overflow-hidden relative rounded-[30px] cursor-pointer active:scale-[0.97] transition-all duration-200"
     >
       {/* Image area */}
@@ -2068,6 +2115,13 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
         <div className="w-full max-w-full min-w-0 overflow-hidden">
           <div
             className="flex gap-[6px] items-center h-[25px] w-full max-w-full min-w-0 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-none overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            onPointerDown={handleTagPointerDown}
+            onPointerUp={handleTagPointerUp}
+            onPointerCancel={handleTagPointerUp}
+            onTouchStart={handleTagTouchStart}
+            onTouchMove={handleTagTouchMove}
+            onTouchEnd={handleTagTouchEnd}
+            onTouchCancel={handleTagTouchEnd}
             onClick={(e) => e.stopPropagation()}
           >
             {parseMaterialValue(item.material).map((material) => (
