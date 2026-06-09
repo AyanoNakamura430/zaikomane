@@ -2022,57 +2022,10 @@ function RegisterModal({ isOpen, onClose, onSave, userId, initialForm, isCopyMod
 
 function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
   const isOne = item.quantity === 1;
-  const tagTouchStartX = useRef<number | null>(null);
-  const suppressCardClick = useRef(false);
-
-  const releaseTagInteraction = () => {
-    window.setTimeout(() => {
-      suppressCardClick.current = false;
-    }, 350);
-  };
-
-  const handleCardClick = () => {
-    if (suppressCardClick.current) {
-      suppressCardClick.current = false;
-      return;
-    }
-    onClick();
-  };
-
-  const handleTagPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    suppressCardClick.current = true;
-  };
-
-  const handleTagPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    releaseTagInteraction();
-  };
-
-  const handleTagTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    tagTouchStartX.current = e.touches[0]?.clientX ?? null;
-    suppressCardClick.current = true;
-  };
-
-  const handleTagTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    const currentX = e.touches[0]?.clientX;
-    if (tagTouchStartX.current != null && currentX != null && Math.abs(currentX - tagTouchStartX.current) > 6) {
-      suppressCardClick.current = true;
-    }
-  };
-
-  const handleTagTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    tagTouchStartX.current = null;
-    releaseTagInteraction();
-  };
-
   return (
     <div
-      onClick={handleCardClick}
-      className="h-[305px] bg-white border-[1.226px] border-[rgba(0,0,0,0.08)] border-solid overflow-hidden relative rounded-[30px] cursor-pointer active:scale-[0.97] transition-all duration-200"
+      onClick={onClick}
+      className="h-[305px] bg-white border-[1.226px] border-[rgba(0,0,0,0.08)] border-solid overflow-hidden relative rounded-[30px] cursor-pointer transition-all duration-200"
     >
       {/* Image area */}
       <div className="h-[150px] w-full bg-[#f2f2f2] relative">
@@ -2114,30 +2067,25 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
         {/* Tags */}
         <div className="w-full max-w-full min-w-0 overflow-hidden">
           <div
-            className="flex gap-[6px] items-center h-[25px] w-full max-w-full min-w-0 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-none overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            onPointerDown={handleTagPointerDown}
-            onPointerUp={handleTagPointerUp}
-            onPointerCancel={handleTagPointerUp}
-            onTouchStart={handleTagTouchStart}
-            onTouchMove={handleTagTouchMove}
-            onTouchEnd={handleTagTouchEnd}
-            onTouchCancel={handleTagTouchEnd}
+            className="w-full max-w-full overflow-x-scroll overflow-y-hidden whitespace-nowrap scrollbar-none overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            {parseMaterialValue(item.material).map((material) => (
-              <div key={material} className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
-                <div className="flex items-center p-[4px]">
-                  <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{material}</p>
+            <div className="inline-flex min-w-max items-center gap-[6px] h-[25px]">
+              {parseMaterialValue(item.material).map((material) => (
+                <div key={material} className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
+                  <div className="flex items-center p-[4px]">
+                    <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{material}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {item.gauge && (
-              <div className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
-                <div className="flex items-center p-[4px]">
-                  <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{item.gauge}</p>
+              ))}
+              {item.gauge && (
+                <div className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
+                  <div className="flex items-center p-[4px]">
+                    <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{item.gauge}</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
