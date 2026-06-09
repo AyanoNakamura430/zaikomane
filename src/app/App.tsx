@@ -2065,7 +2065,10 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
         </p>
 
         {/* Tags */}
-        <div className="flex gap-[6px] items-center h-[25px] max-w-full overflow-x-auto overflow-y-hidden scrollbar-none">
+        <div
+          className="flex gap-[6px] items-center h-[25px] max-w-full overflow-x-auto overflow-y-hidden scrollbar-none overscroll-x-contain [touch-action:pan-x] [-webkit-overflow-scrolling:touch]"
+          onClick={(e) => e.stopPropagation()}
+        >
           {parseMaterialValue(item.material).map((material) => (
             <div key={material} className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
               <div className="flex items-center p-[4px]">
