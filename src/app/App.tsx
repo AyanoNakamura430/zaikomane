@@ -1575,14 +1575,14 @@ function DetailScreen({ item, onBack, onEdit, onCopy, onDelete }: {
           </div>
 
           {/* Tags */}
-          <div className="flex gap-[10px] items-center mt-[10px]">
+          <div className="flex gap-[10px] items-center mt-[10px] max-w-full overflow-x-auto overflow-y-hidden scrollbar-none">
             {parseMaterialValue(item.material).map((material) => (
-              <div key={material} className="bg-[#f2f2f2] rounded-full px-[10px] py-[4px]">
+              <div key={material} className="bg-[#f2f2f2] rounded-full px-[10px] py-[4px] shrink-0">
                 <p className="font-['Nunito',sans-serif] font-light text-[10px] text-[#888] tracking-[0.275px] leading-[16.5px] whitespace-nowrap">{material}</p>
               </div>
             ))}
             {item.gauge && (
-              <div className="bg-[#f2f2f2] rounded-full px-[10px] py-[4px]">
+              <div className="bg-[#f2f2f2] rounded-full px-[10px] py-[4px] shrink-0">
                 <p className="font-['Nunito',sans-serif] font-light text-[10px] text-[#888] tracking-[0.275px] leading-[16.5px] whitespace-nowrap">{item.gauge}</p>
               </div>
             )}
@@ -2025,7 +2025,7 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
   return (
     <div
       onClick={onClick}
-      className="h-[360px] bg-white border-[1.226px] border-[rgba(0,0,0,0.08)] border-solid overflow-hidden relative rounded-[30px] cursor-pointer active:scale-[0.97] transition-all duration-200"
+      className="h-[305px] bg-white border-[1.226px] border-[rgba(0,0,0,0.08)] border-solid overflow-hidden relative rounded-[30px] cursor-pointer active:scale-[0.97] transition-all duration-200"
     >
       {/* Image area */}
       <div className="h-[150px] w-full bg-[#f2f2f2] relative">
@@ -2065,18 +2065,18 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
         </p>
 
         {/* Tags */}
-        <div className="flex flex-wrap gap-[6px] items-start content-start min-h-[78px] overflow-hidden">
+        <div className="flex gap-[6px] items-center h-[25px] max-w-full overflow-x-auto overflow-y-hidden scrollbar-none">
           {parseMaterialValue(item.material).map((material) => (
-            <div key={material} className="bg-[#f2f2f2] h-[25px] max-w-full rounded-full shrink-0 flex items-center">
+            <div key={material} className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
               <div className="flex items-center p-[4px]">
-                <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] truncate">{material}</p>
+                <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{material}</p>
               </div>
             </div>
           ))}
           {item.gauge && (
-            <div className="bg-[#f2f2f2] h-[25px] max-w-full rounded-full shrink-0 flex items-center">
+            <div className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
               <div className="flex items-center p-[4px]">
-                <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] truncate">{item.gauge}</p>
+                <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{item.gauge}</p>
               </div>
             </div>
           )}
