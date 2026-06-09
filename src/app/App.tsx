@@ -225,6 +225,18 @@ function isDefaultFilter(f: FilterState) {
     f.stock === "all";
 }
 
+function parseMaterialValue(value: string): string[] {
+  return value.split(",").map((v) => v.trim()).filter(Boolean);
+}
+
+function toggleMaterialValue(value: string, material: string): string {
+  const selected = parseMaterialValue(value);
+  const next = selected.includes(material)
+    ? selected.filter((m) => m !== material)
+    : [...selected, material];
+  return next.join(",");
+}
+
 function loadInitialItems(): Product[] {
   try {
     const storedItems = window.localStorage.getItem(ITEMS_STORAGE_KEY);
@@ -1199,7 +1211,14 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
           <section>
             <FieldLabel>材質</FieldLabel>
             <div className="flex flex-wrap gap-2">
-              {MATERIALS.map((m) => <SelectChip key={m} label={m} selected={form.material === m} onClick={() => set("material", form.material === m ? "" : m)} />)}
+              {MATERIALS.map((m) => (
+                <SelectChip
+                  key={m}
+                  label={m}
+                  selected={parseMaterialValue(form.material).includes(m)}
+                  onClick={() => set("material", toggleMaterialValue(form.material, m))}
+                />
+              ))}
             </div>
           </section>
 
@@ -1365,7 +1384,12 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
             <FieldLabel>材質</FieldLabel>
             <div className="flex flex-wrap gap-2 mt-2">
               {MATERIALS.map((m) => (
-                <SelectChip key={m} label={m} selected={form.material === m} onClick={() => set("material", form.material === m ? "" : m)} />
+                <SelectChip
+                  key={m}
+                  label={m}
+                  selected={parseMaterialValue(form.material).includes(m)}
+                  onClick={() => set("material", toggleMaterialValue(form.material, m))}
+                />
               ))}
             </div>
           </section>
@@ -1510,13 +1534,13 @@ function DetailScreen({ item, onBack, onEdit, onCopy, onDelete }: {
               <span className="font-['Nunito',sans-serif] font-light text-[14px] leading-[20px]">return</span>
             </button>
             <div className="flex items-center gap-2">
-              <button onClick={onCopy} className="flex items-center gap-[6px] border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#f5f5f5] transition-colors">
-                <Copy size={13} strokeWidth={1.5} />
-                <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px]">copy</span>
-              </button>
               <button onClick={onEdit} className="flex items-center gap-[6px] border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#f5f5f5] transition-colors">
                 <Pencil size={13} strokeWidth={1.5} />
                 <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px]">edit</span>
+              </button>
+              <button onClick={onCopy} className="flex items-center gap-[6px] border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#f5f5f5] transition-colors">
+                <Copy size={13} strokeWidth={1.5} />
+                <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px]">copy</span>
               </button>
             </div>
           </div>
@@ -1552,11 +1576,11 @@ function DetailScreen({ item, onBack, onEdit, onCopy, onDelete }: {
 
           {/* Tags */}
           <div className="flex gap-[10px] items-center mt-[10px]">
-            {item.material && (
-              <div className="bg-[#f2f2f2] rounded-full px-[10px] py-[4px]">
-                <p className="font-['Nunito',sans-serif] font-light text-[10px] text-[#888] tracking-[0.275px] leading-[16.5px] whitespace-nowrap">{item.material}</p>
+            {parseMaterialValue(item.material).map((material) => (
+              <div key={material} className="bg-[#f2f2f2] rounded-full px-[10px] py-[4px]">
+                <p className="font-['Nunito',sans-serif] font-light text-[10px] text-[#888] tracking-[0.275px] leading-[16.5px] whitespace-nowrap">{material}</p>
               </div>
-            )}
+            ))}
             {item.gauge && (
               <div className="bg-[#f2f2f2] rounded-full px-[10px] py-[4px]">
                 <p className="font-['Nunito',sans-serif] font-light text-[10px] text-[#888] tracking-[0.275px] leading-[16.5px] whitespace-nowrap">{item.gauge}</p>
@@ -1895,7 +1919,14 @@ function RegisterModal({ isOpen, onClose, onSave, userId, initialForm, isCopyMod
               <section>
                 <FieldLabel>材質</FieldLabel>
                 <div className="flex flex-wrap gap-2">
-                  {MATERIALS.map((m) => <SelectChip key={m} label={m} selected={form.material === m} onClick={() => set("material", form.material === m ? "" : m)} />)}
+                  {MATERIALS.map((m) => (
+                    <SelectChip
+                      key={m}
+                      label={m}
+                      selected={parseMaterialValue(form.material).includes(m)}
+                      onClick={() => set("material", toggleMaterialValue(form.material, m))}
+                    />
+                  ))}
                 </div>
               </section>
 
@@ -1994,7 +2025,7 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
   return (
     <div
       onClick={onClick}
-      className="bg-white border-[1.226px] border-[rgba(0,0,0,0.08)] border-solid overflow-hidden relative rounded-[30px] cursor-pointer active:scale-[0.97] transition-all duration-200"
+      className="h-[360px] bg-white border-[1.226px] border-[rgba(0,0,0,0.08)] border-solid overflow-hidden relative rounded-[30px] cursor-pointer active:scale-[0.97] transition-all duration-200"
     >
       {/* Image area */}
       <div className="h-[150px] w-full bg-[#f2f2f2] relative">
@@ -2034,18 +2065,18 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
         </p>
 
         {/* Tags */}
-        <div className="flex gap-[10px] items-center h-[25px]">
-          {item.material && (
-            <div className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
+        <div className="flex flex-wrap gap-[6px] items-start content-start min-h-[78px] overflow-hidden">
+          {parseMaterialValue(item.material).map((material) => (
+            <div key={material} className="bg-[#f2f2f2] h-[25px] max-w-full rounded-full shrink-0 flex items-center">
               <div className="flex items-center p-[4px]">
-                <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{item.material}</p>
+                <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] truncate">{material}</p>
               </div>
             </div>
-          )}
+          ))}
           {item.gauge && (
-            <div className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
+            <div className="bg-[#f2f2f2] h-[25px] max-w-full rounded-full shrink-0 flex items-center">
               <div className="flex items-center p-[4px]">
-                <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{item.gauge}</p>
+                <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] truncate">{item.gauge}</p>
               </div>
             </div>
           )}
@@ -2186,7 +2217,8 @@ export default function App() {
       const q = search.trim().toLowerCase();
       const matchesSearch = !q || [item.maker, item.colorName, item.material, item.gauge, item.notes ?? ""]
         .some((s) => s.toLowerCase().includes(q));
-      const matchesMaterial = filter.materials.length === 0 || filter.materials.includes(item.material);
+      const itemMaterials = parseMaterialValue(item.material);
+      const matchesMaterial = filter.materials.length === 0 || filter.materials.some((m) => itemMaterials.includes(m));
       const matchesGauge = filter.gauges.length === 0 || filter.gauges.includes(item.gauge);
       const matchesStock =
         filter.stock === "all" ||
