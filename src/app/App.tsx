@@ -2045,7 +2045,7 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
       </div>
 
       {/* Info panel — overlaps image with rounded top corners */}
-      <div className="-mt-[29px] bg-white rounded-tl-[30px] rounded-tr-[30px] relative z-10 px-[20px] pt-[25px] pb-[25px] flex flex-col gap-[10px]">
+      <div className="-mt-[29px] bg-white rounded-tl-[30px] rounded-tr-[30px] relative z-10 px-[20px] pt-[25px] pb-[25px] flex flex-col gap-[10px] min-w-0">
         {/* Maker */}
         <p className="font-['Nunito',sans-serif] font-light leading-[15px] text-[#888] text-[10px] tracking-[1px] uppercase whitespace-nowrap">{item.maker}</p>
 
@@ -2065,24 +2065,26 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
         </p>
 
         {/* Tags */}
-        <div
-          className="flex gap-[6px] items-center h-[25px] max-w-full overflow-x-auto overflow-y-hidden scrollbar-none overscroll-x-contain [touch-action:pan-x] [-webkit-overflow-scrolling:touch]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {parseMaterialValue(item.material).map((material) => (
-            <div key={material} className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
-              <div className="flex items-center p-[4px]">
-                <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{material}</p>
+        <div className="w-full max-w-full min-w-0 overflow-hidden">
+          <div
+            className="flex gap-[6px] items-center h-[25px] w-full max-w-full min-w-0 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-none overscroll-x-contain touch-pan-x [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {parseMaterialValue(item.material).map((material) => (
+              <div key={material} className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
+                <div className="flex items-center p-[4px]">
+                  <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{material}</p>
+                </div>
               </div>
-            </div>
-          ))}
-          {item.gauge && (
-            <div className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
-              <div className="flex items-center p-[4px]">
-                <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{item.gauge}</p>
+            ))}
+            {item.gauge && (
+              <div className="bg-[#f2f2f2] h-full rounded-full shrink-0 flex items-center">
+                <div className="flex items-center p-[4px]">
+                  <p className="font-['Nunito',sans-serif] font-light leading-[16.5px] text-[#888] text-[9px] tracking-[0.275px] whitespace-nowrap">{item.gauge}</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
