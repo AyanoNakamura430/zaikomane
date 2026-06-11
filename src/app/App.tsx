@@ -13,6 +13,7 @@ import { supabase } from "../lib/supabase";
 type Product = {
   id: string;
   photo: string;
+  photoUrl?: string;
   image?: string;
   maker: string;
   productName?: string;
@@ -100,6 +101,7 @@ type FilterState = {
 };
 
 type RegisterForm = {
+  photoPath: string;
   photoUrl: string;
   photoFile: File | null;
   photoPreview: string | null;
@@ -125,6 +127,7 @@ type RegisterForm = {
 };
 
 type EditForm = {
+  photoPath: string;
   photoUrl: string;
   photoFile: File | null;
   photoPreview: string | null;
@@ -174,6 +177,7 @@ const STOCK_OPTIONS: { value: StockFilter; label: string }[] = [
 ];
 
 const INITIAL_REGISTER_FORM: RegisterForm = {
+  photoPath: "",
   photoUrl: "",
   photoFile: null,
   photoPreview: null,
@@ -205,6 +209,8 @@ const GAUGE_SIZE: Record<string, number> = { 極細: 4, 細: 6, 中細: 8, 合�
 const ITEMS_STORAGE_KEY = "yarn-inventory-items";
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const PRODUCT_IMAGE_BUCKET = "product-images";
+const PHOTO_SIGNED_URL_EXPIRES_IN = 600;
 const PRODUCT_PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600' viewBox='0 0 800 600'%3E%3Crect width='800' height='600' fill='%23f2f2f2'/%3E%3Ccircle cx='400' cy='300' r='118' fill='none' stroke='%23d8d8d8' stroke-width='36'/%3E%3Ccircle cx='400' cy='300' r='72' fill='%23ffffff' stroke='%23e4e4e4' stroke-width='18'/%3E%3Cpath d='M254 396c88-108 195-111 292-8' fill='none' stroke='%23c9c9c9' stroke-width='22' stroke-linecap='round'/%3E%3Cpath d='M584 238c58 21 96 58 114 110' fill='none' stroke='%23d8d8d8' stroke-width='18' stroke-linecap='round'/%3E%3C/svg%3E";
 
@@ -249,12 +255,57 @@ function loadInitialItems(): Product[] {
   }
 }
 
+function normalizeProductPhotoPath(value: string | null | undefined): string | undefined {
+  if (!value || value === PRODUCT_PLACEHOLDER_IMAGE || value.startsWith("data:")) {
+    return undefined;
+  }
+
+  const withoutQuery = value.split("?")[0];
+  const markers = [
+    `/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/`,
+    `/storage/v1/object/sign/${PRODUCT_IMAGE_BUCKET}/`,
+  ];
+
+  for (const marker of markers) {
+    const markerIndex = withoutQuery.indexOf(marker);
+    if (markerIndex >= 0) {
+      return decodeURIComponent(withoutQuery.slice(markerIndex + marker.length));
+    }
+  }
+
+  return value.replace(/^\/+/, "");
+}
+
+async function createProductPhotoUrl(photoPath: string | undefined): Promise<string | undefined> {
+  if (!photoPath) return undefined;
+
+  if (/^https?:\/\//.test(photoPath)) {
+    return photoPath;
+  }
+
+  try {
+    const { data, error } = await supabase.storage
+      .from(PRODUCT_IMAGE_BUCKET)
+      .createSignedUrl(photoPath, PHOTO_SIGNED_URL_EXPIRES_IN);
+
+    if (error) {
+      console.error("Failed to create signed URL for product image.", error);
+      return undefined;
+    }
+
+    return data.signedUrl;
+  } catch (error) {
+    console.error("Failed to create signed URL for product image.", error);
+    return undefined;
+  }
+}
+
 function toProduct(row: ZaikomaneItemRow): Product {
-  const image = row.image ?? row.photo ?? undefined;
+  const image = normalizeProductPhotoPath(row.photo ?? row.image);
 
   return {
     id: row.id,
-    photo: image ?? PRODUCT_PLACEHOLDER_IMAGE,
+    photo: image ?? "",
     image,
     maker: row.maker ?? "",
     productName: row.product_name ?? undefined,
@@ -277,11 +328,21 @@ function toProduct(row: ZaikomaneItemRow): Product {
   };
 }
 
+async function toProductWithSignedPhoto(row: ZaikomaneItemRow): Promise<Product> {
+  const product = toProduct(row);
+  const photoUrl = await createProductPhotoUrl(product.photo || undefined);
+  return {
+    ...product,
+    photoUrl,
+  };
+}
+
 function toRegisterFormFromProduct(item: Product): RegisterForm {
-  const image = getProductImage(item);
+  const imagePath = normalizeProductPhotoPath(item.image ?? item.photo);
 
   return {
-    photoUrl: image !== PRODUCT_PLACEHOLDER_IMAGE ? image : "",
+    photoPath: imagePath ?? "",
+    photoUrl: item.photoUrl ?? "",
     photoFile: null,
     photoPreview: null,
     photoError: "",
@@ -308,7 +369,7 @@ function toRegisterFormFromProduct(item: Product): RegisterForm {
 
 function toZaikomaneItemPayload(item: Product): ZaikomaneItemPayload {
   return {
-    photo: item.photo,
+    photo: normalizeProductPhotoPath(item.photo) ?? "",
     maker: item.maker,
     product_name: item.productName || null,
     color_name: item.colorName,
@@ -344,10 +405,6 @@ function toZaikomaneItemUpdate(item: Product): ZaikomaneItemUpdate {
   };
 }
 
-function getProductImage(item: Product): string {
-  return item.image ?? item.photo;
-}
-
 function validateImageFile(file: File): string {
   if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
     return "jpg / png / webp の画像を選択してください";
@@ -372,7 +429,7 @@ async function uploadProductImage(file: File, userId: string): Promise<string | 
 
   try {
     const { error } = await supabase.storage
-      .from("product-images")
+      .from(PRODUCT_IMAGE_BUCKET)
       .upload(path, file);
 
     if (error) {
@@ -380,19 +437,39 @@ async function uploadProductImage(file: File, userId: string): Promise<string | 
       return null;
     }
 
-    const { data } = supabase.storage
-      .from("product-images")
-      .getPublicUrl(path);
-
-    if (!data.publicUrl) {
-      console.error("Failed to get public URL for uploaded product image.");
-      return null;
-    }
-
-    return data.publicUrl;
+    return path;
   } catch (error) {
     console.error("Failed to upload product image to Supabase Storage.", error);
     return null;
+  }
+}
+
+async function deleteProductImageIfUnused(photoPath: string | undefined): Promise<void> {
+  if (!photoPath || /^https?:\/\//.test(photoPath)) return;
+
+  try {
+    const { data, error } = await supabase
+      .from("zaikomane_items")
+      .select("id")
+      .eq("photo", photoPath)
+      .limit(1);
+
+    if (error) {
+      console.error("Failed to check product image references in Supabase.", error);
+      return;
+    }
+
+    if ((data ?? []).length > 0) return;
+
+    const { error: storageError } = await supabase.storage
+      .from(PRODUCT_IMAGE_BUCKET)
+      .remove([photoPath]);
+
+    if (storageError) {
+      console.error("Failed to delete product image from Supabase Storage.", storageError);
+    }
+  } catch (error) {
+    console.error("Failed to delete product image from Supabase Storage.", error);
   }
 }
 
@@ -1067,7 +1144,11 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
   item: Product; onBack: () => void; onSave: (u: Product) => void; onDelete: () => void; userId: string | null;
 }) {
   const [form, setForm] = useState<EditForm>({
-    photoUrl: item.image ?? (item.photo !== PRODUCT_PLACEHOLDER_IMAGE ? item.photo : ""), photoFile: null, photoPreview: null, photoError: "",
+    photoPath: normalizeProductPhotoPath(item.image ?? item.photo) ?? "",
+    photoUrl: item.photoUrl ?? "",
+    photoFile: null,
+    photoPreview: null,
+    photoError: "",
     maker: item.maker, productName: item.productName ?? "", colorName: item.colorName, colorCode: item.colorCode,
     material: item.material, gauge: item.gauge,
     weightG: item.weightG, lengthM: item.lengthM,
@@ -1099,7 +1180,7 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
   };
 
   const handleSave = async () => {
-    let image = form.photoUrl;
+    let image = form.photoPath || undefined;
 
     if (form.photoFile) {
       if (!userId) {
@@ -1107,14 +1188,14 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
         return;
       }
 
-      const uploadedUrl = await uploadProductImage(form.photoFile, userId);
-      if (!uploadedUrl) return;
-      image = uploadedUrl;
+      const uploadedPath = await uploadProductImage(form.photoFile, userId);
+      if (!uploadedPath) return;
+      image = uploadedPath;
     }
 
     onSave({
       ...item,
-      photo: image || PRODUCT_PLACEHOLDER_IMAGE,
+      photo: image || "",
       image: image || undefined,
       maker: form.maker, productName: form.productName || undefined, colorName: form.colorName, colorCode: form.colorCode,
       material: form.material, gauge: form.gauge,
@@ -1132,7 +1213,7 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
   };
 
   const handleRemovePhoto = () => {
-    setForm((prev) => ({ ...prev, photoFile: null, photoPreview: null, photoUrl: "", photoError: "" }));
+    setForm((prev) => ({ ...prev, photoPath: "", photoFile: null, photoPreview: null, photoUrl: "", photoError: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1517,6 +1598,7 @@ function DetailScreen({ item, onBack, onEdit, onCopy, onDelete }: {
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isOne = item.quantity === 1;
+  const productPhotoUrl = item.photoUrl;
 
   return (
     <motion.div
@@ -1548,8 +1630,8 @@ function DetailScreen({ item, onBack, onEdit, onCopy, onDelete }: {
 
         {/* Image */}
         <div className="relative h-[265px] bg-[#f2f2f2] flex-shrink-0 overflow-hidden">
-          {getProductImage(item)
-            ? <img src={getProductImage(item)} alt={`${item.maker} ${item.colorName}`} className="absolute inset-0 size-full object-cover" />
+          {productPhotoUrl
+            ? <img src={productPhotoUrl} alt={`${item.maker} ${item.colorName}`} className="absolute inset-0 size-full object-cover" />
             : <div className="w-full h-full" style={{ backgroundColor: item.colorCode }} />
           }
           <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[rgba(0,0,0,0.3)] to-transparent" />
@@ -1773,7 +1855,7 @@ function RegisterModal({ isOpen, onClose, onSave, userId, initialForm, isCopyMod
   };
 
   const handleRemovePhoto = () => {
-    setForm((prev) => ({ ...prev, photoUrl: "", photoFile: null, photoPreview: null, photoError: "" }));
+    setForm((prev) => ({ ...prev, photoPath: "", photoUrl: "", photoFile: null, photoPreview: null, photoError: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1783,17 +1865,17 @@ function RegisterModal({ isOpen, onClose, onSave, userId, initialForm, isCopyMod
       return;
     }
 
-    let image = form.photoUrl || undefined;
+    let image = form.photoPath || undefined;
 
     if (form.photoFile) {
-      const uploadedUrl = await uploadProductImage(form.photoFile, userId);
-      if (!uploadedUrl) return;
-      image = uploadedUrl;
+      const uploadedPath = await uploadProductImage(form.photoFile, userId);
+      if (!uploadedPath) return;
+      image = uploadedPath;
     }
 
     const newItem: Product = {
       id: "",
-      photo: image ?? PRODUCT_PLACEHOLDER_IMAGE,
+      photo: image ?? "",
       image,
       maker: form.maker,
       productName: form.productName || undefined,
@@ -1832,7 +1914,7 @@ function RegisterModal({ isOpen, onClose, onSave, userId, initialForm, isCopyMod
         return;
       }
 
-      onSave(toProduct(data as ZaikomaneItemRow));
+      onSave(await toProductWithSignedPhoto(data as ZaikomaneItemRow));
       setForm(INITIAL_REGISTER_FORM);
       onClose();
     } catch (error) {
@@ -2022,6 +2104,7 @@ function RegisterModal({ isOpen, onClose, onSave, userId, initialForm, isCopyMod
 
 function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
   const isOne = item.quantity === 1;
+  const productPhotoUrl = item.photoUrl;
   return (
     <div
       onClick={onClick}
@@ -2029,8 +2112,8 @@ function YarnCard({ item, onClick }: { item: Product; onClick: () => void }) {
     >
       {/* Image area */}
       <div className="h-[150px] w-full bg-[#f2f2f2] relative">
-        {getProductImage(item)
-          ? <img src={getProductImage(item)} alt={`${item.maker} ${item.colorName}`} className="absolute inset-0 max-w-none object-cover pointer-events-none size-full" loading="lazy" />
+        {productPhotoUrl
+          ? <img src={productPhotoUrl} alt={`${item.maker} ${item.colorName}`} className="absolute inset-0 max-w-none object-cover pointer-events-none size-full" loading="lazy" />
           : <div className="w-full h-full" style={{ backgroundColor: item.colorCode }} />
         }
         {/* Quantity badge */}
@@ -2190,7 +2273,10 @@ export default function App() {
           return;
         }
 
-        setItems(((data ?? []) as ZaikomaneItemRow[]).map(toProduct));
+        const products = await Promise.all(
+          ((data ?? []) as ZaikomaneItemRow[]).map(toProductWithSignedPhoto)
+        );
+        setItems(products);
       } catch (error) {
         if (!isMounted) return;
         console.error("Failed to fetch zaikomane_items from Supabase.", error);
@@ -2296,7 +2382,7 @@ export default function App() {
         return;
       }
 
-      const updatedItem = toProduct(data as ZaikomaneItemRow);
+      const updatedItem = await toProductWithSignedPhoto(data as ZaikomaneItemRow);
       setItems((prev) => prev.map((it) => (it.id === updatedItem.id ? updatedItem : it)));
       setSelectedItem((prev) => (prev?.id === updatedItem.id ? updatedItem : prev));
       setEditingItem(null);
@@ -2305,19 +2391,22 @@ export default function App() {
     }
   };
 
-  const handleDeleteProduct = async (productId: string) => {
+  const handleDeleteProduct = async (product: Product) => {
     try {
       const { error } = await supabase
         .from("zaikomane_items")
         .delete()
-        .eq("id", productId);
+        .eq("id", product.id);
 
       if (error) {
         console.error("Failed to delete zaikomane_items from Supabase.", error);
         return;
       }
 
-      setItems((prev) => prev.filter((item) => item.id !== productId));
+      const photoPath = normalizeProductPhotoPath(product.photo);
+      await deleteProductImageIfUnused(photoPath);
+
+      setItems((prev) => prev.filter((item) => item.id !== product.id));
       setEditingItem(null);
       setSelectedItem(null);
     } catch (error) {
@@ -2477,7 +2566,7 @@ export default function App() {
             onBack={() => setSelectedItem(null)}
             onEdit={handleStartEdit}
             onCopy={handleStartCopy}
-            onDelete={() => handleDeleteProduct(selectedProduct.id)}
+            onDelete={() => handleDeleteProduct(selectedProduct)}
           />
         )}
       </AnimatePresence>
@@ -2490,7 +2579,7 @@ export default function App() {
             item={editingProduct}
             onBack={() => setEditingItem(null)}
             onSave={handleSaveEdit}
-            onDelete={() => handleDeleteProduct(editingProduct.id)}
+            onDelete={() => handleDeleteProduct(editingProduct)}
             userId={session.user.id}
           />
         )}
