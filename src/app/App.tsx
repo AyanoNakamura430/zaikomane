@@ -601,7 +601,7 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (session: Session |
   const isLoginContent = contentMode === "login";
 
   return (
-    <div className="min-h-screen bg-[#f2f2f2] font-sans flex items-center justify-center px-[20px] py-[34px]">
+    <div className="min-h-screen bg-white font-sans flex justify-center px-[20px] py-[34px]">
       <style>{`
         .auth-field:-webkit-autofill,
         .auth-field:-webkit-autofill:hover,
@@ -621,20 +621,24 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (session: Session |
           -webkit-text-fill-color: #ffffff;
         }
       `}</style>
-      <div className={`relative h-[490px] w-full max-w-[280px] overflow-hidden rounded-[46px] shadow-[0_22px_60px_rgba(0,0,0,0.08)] transition-colors duration-500 ${
-        isLoginContent ? "bg-[#0f0f0f]" : "bg-white"
-      }`}>
-        <div className={`absolute left-1/2 top-[48px] z-10 w-[68%] -translate-x-1/2 transition-opacity duration-200 ${
-          isLoginContent && isContentVisible ? "opacity-100" : "pointer-events-none opacity-0"
+      <div className="w-full max-w-[280px]">
+        <header className="mb-[18px]">
+          <h1 className="font-['Megrim',sans-serif] text-[32px] leading-[32px] tracking-[-0.8px] text-[#0f0f0f] not-italic">K-TO.</h1>
+        </header>
+        <div className={`relative h-[490px] w-full overflow-hidden rounded-[46px] border border-[#0F0F0F] transition-colors duration-500 ${
+          isLoginContent ? "bg-[#0f0f0f]" : "bg-white"
         }`}>
-          <button
-            type="button"
-            onClick={() => handleAuthModeChange("signup")}
-            className="w-full cursor-pointer text-center font-['Nunito',sans-serif] text-[16px] font-light text-[#888]"
-          >
-            here sign-up
-          </button>
-        </div>
+          <div className={`absolute left-1/2 top-[48px] z-10 w-[68%] -translate-x-1/2 transition-opacity duration-200 ${
+            isLoginContent && isContentVisible ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}>
+            <button
+              type="button"
+              onClick={() => handleAuthModeChange("signup")}
+              className="w-full cursor-pointer text-center font-['Nunito',sans-serif] text-[16px] font-light text-[#888]"
+            >
+              here sign-up
+            </button>
+          </div>
 
         <div className={`absolute left-1/2 bottom-[31px] z-30 w-[60%] -translate-x-1/2 transition-opacity duration-200 ${
           !isLoginContent && isContentVisible ? "opacity-100" : "pointer-events-none opacity-0"
@@ -715,6 +719,7 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (session: Session |
             </button>
           </div>
         </section>
+        </div>
       </div>
     </div>
   );
