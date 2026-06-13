@@ -514,10 +514,22 @@ function TextInput({ value, onChange, placeholder, type = "text" }: {
 }
 
 function LoginScreen({ onAuthenticated }: { onAuthenticated: (session: Session | null) => void }) {
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [contentMode, setContentMode] = useState<"login" | "signup">("login");
+  const [isContentVisible, setIsContentVisible] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const contentSwapTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (contentSwapTimeoutRef.current) {
+        window.clearTimeout(contentSwapTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSignIn = async () => {
     setMessage("");
@@ -570,54 +582,139 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (session: Session |
     }
   };
 
+  const handleAuthModeChange = (nextMode: "login" | "signup") => {
+    if (nextMode === authMode || !isContentVisible) return;
+
+    setMessage("");
+    setAuthMode(nextMode);
+    setIsContentVisible(false);
+
+    contentSwapTimeoutRef.current = window.setTimeout(() => {
+      setContentMode(nextMode);
+      setIsContentVisible(true);
+      contentSwapTimeoutRef.current = null;
+    }, 250);
+  };
+
   const canSubmit = email.trim() !== "" && password.trim() !== "" && !isSubmitting;
+  const isLoginLayout = authMode === "login";
+  const isLoginContent = contentMode === "login";
 
   return (
-    <div className="min-h-screen bg-background font-sans">
-      <div className="max-w-lg mx-auto min-h-screen px-[25px] py-[48px] flex flex-col justify-center">
-        <div className="mb-8">
-          <h1 className="font-['Megrim',sans-serif] text-[40px] leading-[40px] tracking-[-0.8px] text-[#0f0f0f] not-italic">k-to.</h1>
-          <p className="font-['Nunito',sans-serif] font-normal text-[13px] leading-[20px] text-[#888] mt-[8px]">
-            Sign in to manage your yarn inventory.
-          </p>
+    <div className="min-h-screen bg-[#f2f2f2] font-sans flex items-center justify-center px-[20px] py-[34px]">
+      <style>{`
+        .auth-field:-webkit-autofill,
+        .auth-field:-webkit-autofill:hover,
+        .auth-field:-webkit-autofill:focus {
+          transition: background-color 9999s ease-out 0s;
+        }
+        .auth-field-login:-webkit-autofill,
+        .auth-field-login:-webkit-autofill:hover,
+        .auth-field-login:-webkit-autofill:focus {
+          -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+          -webkit-text-fill-color: #0f0f0f;
+        }
+        .auth-field-signup:-webkit-autofill,
+        .auth-field-signup:-webkit-autofill:hover,
+        .auth-field-signup:-webkit-autofill:focus {
+          -webkit-box-shadow: 0 0 0 1000px #0f0f0f inset;
+          -webkit-text-fill-color: #ffffff;
+        }
+      `}</style>
+      <div className={`relative h-[490px] w-full max-w-[280px] overflow-hidden rounded-[46px] shadow-[0_22px_60px_rgba(0,0,0,0.08)] transition-colors duration-500 ${
+        isLoginContent ? "bg-[#0f0f0f]" : "bg-white"
+      }`}>
+        <div className={`absolute left-1/2 top-[48px] z-10 w-[68%] -translate-x-1/2 transition-opacity duration-200 ${
+          isLoginContent && isContentVisible ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}>
+          <button
+            type="button"
+            onClick={() => handleAuthModeChange("signup")}
+            className="w-full cursor-pointer text-center font-['Nunito',sans-serif] text-[16px] font-light text-[#888]"
+          >
+            here sign-up
+          </button>
         </div>
 
-        <div className="space-y-5">
-          <section>
-            <FieldLabel>email</FieldLabel>
-            <TextInput value={email} onChange={setEmail} placeholder="you@example.com" type="email" />
-          </section>
+        <div className={`absolute left-1/2 bottom-[31px] z-30 w-[60%] -translate-x-1/2 transition-opacity duration-200 ${
+          !isLoginContent && isContentVisible ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}>
+          <button
+            type="button"
+            onClick={() => handleAuthModeChange("login")}
+            className="w-full cursor-pointer text-center font-['Nunito',sans-serif] text-[14px] font-light text-[#888]"
+          >
+            here login
+          </button>
+        </div>
 
-          <section>
-            <FieldLabel>password</FieldLabel>
-            <TextInput value={password} onChange={setPassword} placeholder="password" type="password" />
-          </section>
-
-          {message && (
-            <p className="font-['Nunito',sans-serif] font-light text-[12px] leading-[18px] text-[#d0182a]">
-              {message}
+        <section
+          className={`absolute inset-x-0 z-20 transition-all duration-500 ease-out ${
+            isLoginLayout ? "top-[96px] bottom-0 rounded-[46px]" : "top-0 h-[412px] rounded-[46px]"
+          } ${
+            isLoginContent ? "bg-white" : "bg-[#0f0f0f]"
+          }`}
+        >
+          <div
+            className={`absolute left-1/2 z-10 w-[60%] -translate-x-1/2 transition-all duration-500 ease-out ${
+              isLoginContent ? "top-[86px]" : "top-[88px]"
+            } ${
+              isContentVisible ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            <p className={`w-full text-center font-['Nunito',sans-serif] font-light ${
+              isLoginContent ? "text-[18px] tracking-[2px] text-[#0F0F0F]" : "text-[20px] tracking-[2px] text-white"
+            }`}>
+              {isLoginContent ? "LOGIN" : "SIGN-UP"}
             </p>
-          )}
 
-          <div className="space-y-2 pt-2">
+            <div className={isLoginContent ? "mt-[24px]" : "mt-[26px]"}>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className={`auth-field block w-full border-0 border-b bg-transparent px-0 font-['Nunito',sans-serif] text-[18px] font-light outline-none ${
+                  isLoginContent
+                    ? "auth-field-login h-[30px] border-[#b8b8b8] text-[#0f0f0f] placeholder:text-[#CACACA]"
+                    : "auth-field-signup h-[32px] border-[#777] text-white placeholder:text-[#888]"
+                }`}
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="password"
+                className={`auth-field block w-full border-0 border-b bg-transparent px-0 font-['Nunito',sans-serif] text-[18px] font-light outline-none ${
+                  isLoginContent
+                    ? "auth-field-login h-[30px] border-[#b8b8b8] text-[#0f0f0f] placeholder:text-[#CACACA]"
+                    : "auth-field-signup h-[32px] border-[#777] text-white placeholder:text-[#888]"
+                }`}
+              />
+            </div>
+
+            {message && (
+              <p className={`mt-[12px] font-['Nunito',sans-serif] text-[12px] font-light leading-[18px] ${
+                isLoginContent ? "text-[#d0182a]" : "text-white/70"
+              }`}>
+                {message}
+              </p>
+            )}
+
             <button
               type="button"
-              onClick={handleSignIn}
+              onClick={isLoginContent ? handleSignIn : handleSignUp}
               disabled={!canSubmit}
-              className="w-full rounded-[20px] bg-[#0f0f0f] py-[12.2px] font-['Nunito',sans-serif] text-[14px] font-light text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className={`w-full rounded-full border bg-transparent px-[34px] font-['Nunito',sans-serif] text-[16px] font-light transition-all duration-300 disabled:opacity-100 ${
+                isLoginContent
+                  ? "mt-[26px] border-[#0f0f0f] py-[10px] text-[#0f0f0f] hover:bg-[#0f0f0f] hover:text-white"
+                  : "mt-[28px] border-white py-[11px] text-white hover:bg-white hover:text-[#0f0f0f]"
+              }`}
             >
-              login
-            </button>
-            <button
-              type="button"
-              onClick={handleSignUp}
-              disabled={!canSubmit}
-              className="w-full rounded-[20px] bg-[#f2f2f2] py-[12.2px] font-['Nunito',sans-serif] text-[14px] font-light text-[#0f0f0f] transition-colors hover:bg-[#e8e8e8] disabled:opacity-40"
-            >
-              sign up
+              {isLoginContent ? "login" : "sign up"}
             </button>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
@@ -1126,7 +1223,7 @@ function FilterDialog({ isOpen, filter, resultCount, onChange, onClose }: {
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-light text-sm tracking-wide hover:bg-primary/90 active:scale-[0.98] transition-all duration-150"
+                className="w-full py-3.5 rounded-2xl border-[0.2px] border-black bg-transparent text-[#0f0f0f] font-light text-sm tracking-wide hover:bg-[#0f0f0f] hover:text-white active:scale-[0.98] transition-all duration-150"
               >
                 {resultCount}件を表示
               </button>
@@ -1235,9 +1332,9 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
             </button>
             <span className="font-['Nunito',sans-serif] font-light text-[16px] leading-[24px] text-[#0f0f0f]">Edit-mode</span>
             <button type="button" onClick={handleSave} disabled={!canSave}
-              className="flex items-center border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] hover:bg-[#f5f5f5] transition-colors disabled:opacity-40"
+              className="flex items-center border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#0f0f0f] hover:text-white transition-colors disabled:opacity-40"
             >
-              <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px] text-[#0f0f0f]">save</span>
+              <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px]">save</span>
             </button>
           </div>
         </header>
@@ -1400,9 +1497,9 @@ function EditScreen({ item, onBack, onSave, onDelete, userId }: {
             </button>
             <span className="font-['Nunito',sans-serif] font-light text-[16px] leading-[24px] text-[#0f0f0f]">edit-mode</span>
             <button type="button" onClick={handleSave} disabled={!canSave}
-              className="flex items-center border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] hover:bg-[#f5f5f5] transition-colors disabled:opacity-40"
+              className="flex items-center border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#0f0f0f] hover:text-white transition-colors disabled:opacity-40"
             >
-              <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px] text-[#0f0f0f]">save</span>
+              <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px]">save</span>
             </button>
           </div>
         </header>
@@ -1616,11 +1713,11 @@ function DetailScreen({ item, onBack, onEdit, onCopy, onDelete }: {
               <span className="font-['Nunito',sans-serif] font-light text-[14px] leading-[20px]">return</span>
             </button>
             <div className="flex items-center gap-2">
-              <button onClick={onEdit} className="flex items-center gap-[6px] border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#f5f5f5] transition-colors">
+              <button onClick={onEdit} className="flex items-center gap-[6px] border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#0f0f0f] hover:text-white transition-colors">
                 <Pencil size={13} strokeWidth={1.5} />
                 <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px]">edit</span>
               </button>
-              <button onClick={onCopy} className="flex items-center gap-[6px] border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#f5f5f5] transition-colors">
+              <button onClick={onCopy} className="flex items-center gap-[6px] border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#0f0f0f] hover:text-white transition-colors">
                 <Copy size={13} strokeWidth={1.5} />
                 <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px]">copy</span>
               </button>
@@ -1944,9 +2041,9 @@ function RegisterModal({ isOpen, onClose, onSave, userId, initialForm, isCopyMod
                   {isCopyMode ? "Copy-registration" : "Registration-mode"}
                 </span>
                 <button type="button" onClick={handleSave} disabled={!canSave}
-                  className="flex items-center border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] hover:bg-[#f5f5f5] transition-colors disabled:opacity-40"
+                  className="flex items-center border-[0.2px] border-black rounded-full px-[12.2px] py-[6.2px] text-[#0f0f0f] hover:bg-[#0f0f0f] hover:text-white transition-colors disabled:opacity-100"
                 >
-                  <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px] text-[#0f0f0f]">save</span>
+                  <span className="font-['Nunito',sans-serif] font-light text-[12px] leading-[16px]">save</span>
                 </button>
               </div>
             </header>
@@ -2478,7 +2575,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="h-[36px] px-3 rounded-full bg-[#f5f5f5] text-[#888] hover:bg-accent hover:text-accent-foreground transition-colors font-['Nunito',sans-serif] font-light text-[12px]"
+                className="h-[36px] px-3 rounded-full border-[0.2px] border-black bg-transparent text-[#0f0f0f] hover:bg-[#0f0f0f] hover:text-white transition-colors font-['Nunito',sans-serif] font-light text-[12px]"
               >
                 logout
               </button>
@@ -2506,7 +2603,7 @@ export default function App() {
                 className={`relative w-[36px] h-[36px] rounded-full flex items-center justify-center transition-colors ${
                   filterBadgeCount > 0
                     ? "bg-primary text-primary-foreground"
-                    : "bg-[#f5f5f5] text-[#888] hover:bg-accent hover:text-accent-foreground"
+                    : "border-[0.2px] border-black bg-transparent text-[#0f0f0f] hover:bg-[#0f0f0f] hover:text-white"
                 }`}
                 aria-label="絞り込み・並び替え"
               >
