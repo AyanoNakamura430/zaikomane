@@ -2296,6 +2296,7 @@ function EmptyState({ hasFilter }: { hasFilter: boolean }) {
 
 export default function App() {
   const [items, setItems] = useState<Product[]>([]);
+  const [isItemsLoading, setIsItemsLoading] = useState(false);
   const [hasLoadedInitialItems, setHasLoadedInitialItems] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -2350,6 +2351,7 @@ export default function App() {
   useEffect(() => {
     if (!session) {
       setItems([]);
+      setIsItemsLoading(false);
       setHasLoadedInitialItems(false);
       setSelectedItem(null);
       setEditingItem(null);
@@ -2361,6 +2363,8 @@ export default function App() {
     let isMounted = true;
 
     async function fetchInitialItems() {
+      setIsItemsLoading(true);
+
       try {
         const { data, error } = await supabase
           .from("zaikomane_items")
@@ -2385,6 +2389,7 @@ export default function App() {
         setItems(loadInitialItems());
       } finally {
         if (isMounted) {
+          setIsItemsLoading(false);
           setHasLoadedInitialItems(true);
         }
       }
@@ -2534,6 +2539,7 @@ export default function App() {
 
         setSession(null);
         setItems([]);
+        setIsItemsLoading(false);
         setSelectedItem(null);
         setEditingItem(null);
         setCopyRegisterForm(null);
@@ -2544,6 +2550,7 @@ export default function App() {
   };
 
   const hasActiveFilter = !isDefaultFilter(filter) || search.trim().length > 0;
+  const shouldShowEmptyState = !isItemsLoading && hasLoadedInitialItems && filtered.length === 0;
   const filterBadgeCount =
     (filter.sort !== "date_desc" ? 1 : 0) +
     filter.materials.length +
@@ -2628,15 +2635,15 @@ export default function App() {
 
         {/* ── Card grid ── */}
         <main className="px-[25px] pt-[25px] pb-[135px]">
-          {filtered.length === 0 ? (
+          {shouldShowEmptyState ? (
             <EmptyState hasFilter={hasActiveFilter} />
-          ) : (
+          ) : filtered.length > 0 ? (
             <div className="grid grid-cols-2 gap-5">
               {filtered.map((item) => (
                 <YarnCard key={item.id} item={item} onClick={() => setSelectedItem(item)} />
               ))}
             </div>
-          )}
+          ) : null}
         </main>
 
         {/* FAB */}
