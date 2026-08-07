@@ -202,7 +202,7 @@ const INITIAL_REGISTER_FORM: RegisterForm = {
   notes: "",
 };
 
-const MATERIALS = ["ウール", "メリノウール", "アルパカ", "コットン", "アクリル", "その他"];
+const MATERIALS = ["ウール", "メリノウール", "アルパカ", "コットン", "アクリル", "シルク", "リネン", "レーヨン", "モヘヤ", "カシミヤ", "紙", "その他"];
 const GAUGES = ["極細", "細", "中細", "合太", "並太", "極太"];
 const SUGGESTED_MAKERS = ["Hamanaka", "Richmore", "Daruma", "Puppy", "Ski毛糸"];
 const GAUGE_SIZE: Record<string, number> = { 極細: 4, 細: 6, 中細: 8, 合太: 10, 並太: 13, 極太: 17 };
